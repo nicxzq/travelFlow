@@ -1,5 +1,9 @@
 import Link from 'next/link';
 import { Bell, Camera, CheckCircle2, MapPinned, Share2 } from 'lucide-react';
+import { getNextEvent, getTripScheduleContext } from '@/lib/domain/trip-schedule';
+import { shanxiLoopTrip } from '@/lib/mock/shanxi-loop';
+
+export const dynamic = 'force-dynamic';
 
 const highlights = [
   {
@@ -23,6 +27,10 @@ const highlights = [
 ];
 
 export default function HomePage() {
+  const context = getTripScheduleContext(shanxiLoopTrip);
+  const nextEvent = context.phase === 'posttrip' ? undefined : context.phase === 'pretrip' ? context.today.events[0] : getNextEvent(context.today);
+  const undoneTodos = (shanxiLoopTrip.todos ?? []).filter((todo) => todo.status !== 'done').length;
+
   return (
     <main>
       <section className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-10">
@@ -56,17 +64,19 @@ export default function HomePage() {
               <div className="space-y-3">
                 <div className="rounded-md bg-white/10 p-3">
                   <p className="text-xs text-emerald-200">下一站</p>
-                  <p className="mt-1 font-semibold">壶口瀑布山西侧</p>
-                  <p className="mt-1 text-xs text-slate-300">10:00 - 12:00 · 雨衣和防水袋</p>
+                  <p className="mt-1 font-semibold">{nextEvent?.title ?? '暂无下一站'}</p>
+                  <p className="mt-1 text-xs text-slate-300">
+                    {nextEvent ? `${nextEvent.startTime ?? '待定'} - ${nextEvent.endTime ?? '待定'} · ${nextEvent.locationName ?? '地点待定'}` : '当天行程已结束'}
+                  </p>
                 </div>
                 <div className="ml-8 rounded-md bg-white/10 p-3">
                   <p className="text-xs text-blue-200">明日预告</p>
-                  <p className="mt-1 font-semibold">云丘山 → 运城 → 七彩盐湖</p>
+                  <p className="mt-1 font-semibold">{context.tomorrow?.summary ?? '没有下一天安排'}</p>
                 </div>
                 <div className="rounded-md bg-emerald-400/20 p-3">
                   <p className="inline-flex items-center gap-2 text-sm">
                     <CheckCircle2 className="h-4 w-4" />
-                    已同步给同行
+                    {undoneTodos} 项待办待关注
                   </p>
                 </div>
               </div>

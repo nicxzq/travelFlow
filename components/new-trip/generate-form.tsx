@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Code2, Eye, Lightbulb, MapPin, Save } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import type { GeneratedItinerary } from '@/lib/domain/trip';
+import type { EventCategory, GeneratedItinerary } from '@/lib/domain/trip';
 
 type LocalItineraryItem = {
   id: string;
@@ -14,6 +14,13 @@ type LocalItineraryItem = {
 
 const ACTIVE_KEY = 'travelflow_local_itinerary_v1';
 const LIST_KEY = 'travelflow_local_itinerary_list_v1';
+const categoryLabels: Record<EventCategory, string> = {
+  transport: '交通',
+  spot: '景点',
+  hotel: '住宿',
+  food: '餐饮',
+  custom: '事项',
+};
 
 const popularTwoDayPrompts = [
   '从当前位置出发，推荐杭州2日游，节奏轻松，包含西湖、灵隐寺、亲子友好餐厅和雨天备选。',
@@ -373,7 +380,7 @@ export function GenerateTripForm() {
                         {day.events.map((event, index) => (
                           <li key={`${day.dayIndex}-${index}`} className="rounded-md bg-slate-50 p-2">
                             <div>
-                              <span className="font-medium">{event.time}</span> · {event.title}（{event.category}）
+                              <span className="font-medium">{event.time}</span> · {event.title}（{categoryLabels[event.category]}）
                             </div>
                             <div className="text-slate-600">{event.description}</div>
                           </li>
