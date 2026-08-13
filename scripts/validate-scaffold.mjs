@@ -10,6 +10,7 @@ const requiredFiles = [
   'app/trip/[id]/share/page.tsx',
   'app/trip/page.tsx',
   'components/site-header.tsx',
+  'components/site-footer.tsx',
   'lib/supabase/client.ts',
   'types/supabase.ts',
   'tailwind.config.ts',
@@ -32,6 +33,8 @@ const requiredFiles = [
   'components/trip/trip-library.tsx',
   'document/迭代升级日志.md',
   'document/Supabase同步设计文档.md',
+  'document/行程管理与地图增强设计.md',
+  'db/itinerary-management-extension.sql',
 ];
 
 const requiredSnippets = [
@@ -136,12 +139,12 @@ const requiredSnippets = [
     message: 'Itinerary management UI is missing',
   },
   {
-    file: 'app/page.tsx',
+    file: 'components/site-footer.tsx',
     snippet: '管理员 carl-xu',
     message: 'User support footer is missing',
   },
   {
-    file: 'app/page.tsx',
+    file: 'components/site-footer.tsx',
     snippet: '版本号 1.0.0',
     message: 'Version footer is missing',
   },
@@ -212,8 +215,18 @@ const requiredSnippets = [
   },
   {
     file: 'components/trip/trip-workspace.tsx',
-    snippet: '今日待办',
+    snippet: '行程待办',
     message: 'Today todos UI is missing',
+  },
+  {
+    file: 'components/trip/destination-map.tsx',
+    snippet: '长治目的地地图',
+    message: 'Destination map overview is missing',
+  },
+  {
+    file: 'db/itinerary-management-extension.sql',
+    snippet: 'create table if not exists public.todos',
+    message: 'Todos persistence SQL is missing',
   },
   {
     file: 'app/trip/[id]/share/page.tsx',

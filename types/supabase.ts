@@ -116,7 +116,11 @@ export interface Database {
           geo_point: unknown | null;
           external_link: string | null;
           is_completed: boolean | null;
+          status: 'planned' | 'active' | 'done' | 'skipped' | 'changed' | null;
+          sort_order: number | null;
+          navigation_url: string | null;
           created_at: string | null;
+          updated_at: string | null;
         };
         Insert: {
           id?: string;
@@ -133,7 +137,11 @@ export interface Database {
           geo_point?: unknown | null;
           external_link?: string | null;
           is_completed?: boolean | null;
+          status?: 'planned' | 'active' | 'done' | 'skipped' | 'changed' | null;
+          sort_order?: number | null;
+          navigation_url?: string | null;
           created_at?: string | null;
+          updated_at?: string | null;
         };
         Update: {
           id?: string;
@@ -150,7 +158,11 @@ export interface Database {
           geo_point?: unknown | null;
           external_link?: string | null;
           is_completed?: boolean | null;
+          status?: 'planned' | 'active' | 'done' | 'skipped' | 'changed' | null;
+          sort_order?: number | null;
+          navigation_url?: string | null;
           created_at?: string | null;
+          updated_at?: string | null;
         };
         Relationships: [
           {
@@ -165,6 +177,137 @@ export interface Database {
             columns: ['trip_id'];
             isOneToOne: false;
             referencedRelation: 'trips';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      todos: {
+        Row: {
+          id: string;
+          trip_id: string;
+          day_id: string | null;
+          event_id: string | null;
+          scope: 'trip' | 'day' | 'event';
+          title: string;
+          due_date: string | null;
+          status: 'open' | 'done' | 'blocked' | null;
+          sort_order: number | null;
+          created_by: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          trip_id: string;
+          day_id?: string | null;
+          event_id?: string | null;
+          scope: 'trip' | 'day' | 'event';
+          title: string;
+          due_date?: string | null;
+          status?: 'open' | 'done' | 'blocked' | null;
+          sort_order?: number | null;
+          created_by?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          trip_id?: string;
+          day_id?: string | null;
+          event_id?: string | null;
+          scope?: 'trip' | 'day' | 'event';
+          title?: string;
+          due_date?: string | null;
+          status?: 'open' | 'done' | 'blocked' | null;
+          sort_order?: number | null;
+          created_by?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'todos_trip_id_fkey';
+            columns: ['trip_id'];
+            isOneToOne: false;
+            referencedRelation: 'trips';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'todos_day_id_fkey';
+            columns: ['day_id'];
+            isOneToOne: false;
+            referencedRelation: 'days';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'todos_event_id_fkey';
+            columns: ['event_id'];
+            isOneToOne: false;
+            referencedRelation: 'events';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      destination_map_points: {
+        Row: {
+          id: string;
+          trip_id: string;
+          day_id: string | null;
+          event_id: string | null;
+          name: string;
+          city: string;
+          kind: 'airport' | 'spot' | 'hotel' | 'food' | 'route';
+          geo_point: unknown | null;
+          sort_order: number | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          trip_id: string;
+          day_id?: string | null;
+          event_id?: string | null;
+          name: string;
+          city: string;
+          kind: 'airport' | 'spot' | 'hotel' | 'food' | 'route';
+          geo_point?: unknown | null;
+          sort_order?: number | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          trip_id?: string;
+          day_id?: string | null;
+          event_id?: string | null;
+          name?: string;
+          city?: string;
+          kind?: 'airport' | 'spot' | 'hotel' | 'food' | 'route';
+          geo_point?: unknown | null;
+          sort_order?: number | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'destination_map_points_trip_id_fkey';
+            columns: ['trip_id'];
+            isOneToOne: false;
+            referencedRelation: 'trips';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'destination_map_points_day_id_fkey';
+            columns: ['day_id'];
+            isOneToOne: false;
+            referencedRelation: 'days';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'destination_map_points_event_id_fkey';
+            columns: ['event_id'];
+            isOneToOne: false;
+            referencedRelation: 'events';
             referencedColumns: ['id'];
           },
         ];

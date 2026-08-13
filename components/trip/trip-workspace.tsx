@@ -1,9 +1,14 @@
+'use client';
+
 import Link from 'next/link';
-import { AlertTriangle, CalendarDays, CheckCircle2, Lock, Share2 } from 'lucide-react';
+import { AlertTriangle, CalendarDays, ClipboardList, Lock, Share2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { getNextEvent, getTripScheduleContext } from '@/lib/domain/trip-schedule';
 import type { TripEvent, TripWithDaysAndEvents } from '@/lib/domain/trip';
+import { DestinationMap } from '@/components/trip/destination-map';
 import { NextActionCard } from '@/components/trip/next-action-card';
 import { TimelineCard } from '@/components/trip/timeline-card';
+import { getDestinationMapPoints } from '@/lib/mock/destination-map';
 
 type TripWorkspaceProps = {
   trip: TripWithDaysAndEvents;
@@ -37,11 +42,25 @@ function formatPhase(phase: string) {
 }
 
 export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
+  const [doneTodoIds, setDoneTodoIds] = useState<string[]>([]);
+  const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const context = getTripScheduleContext(trip);
-  const nextEvent = getNextEvent(context.today);
+  const sortedDays = useMemo(() => [...trip.days].sort((a, b) => a.dayIndex - b.dayIndex), [trip.days]);
+  const visibleDay = sortedDays.find((day) => day.id === selectedDayId) ?? context.today;
+  const nextEvent = context.phase === 'pretrip' ? visibleDay.events[0] : getNextEvent(visibleDay);
+  const mapPoints = getDestinationMapPoints(trip.destination);
+  const activeTodos = (trip.todos ?? [])
+    .filter((todo) => !doneTodoIds.includes(todo.id) && todo.status !== 'done')
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const completedCount = (trip.todos ?? []).filter((todo) => doneTodoIds.includes(todo.id) || todo.status === 'done').length;
+
+  function toggleTodo(todoId: string) {
+    if (readOnly) return;
+    setDoneTodoIds((current) => (current.includes(todoId) ? current.filter((id) => id !== todoId) : [...current, todoId]));
+  }
 
   return (
-    <main className="mx-auto min-h-screen max-w-5xl space-y-6 px-4 py-8">
+    <main className="mx-auto max-w-5xl space-y-6 px-4 py-8">
       <header className="space-y-3">
         <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
           <span className="rounded-md bg-slate-900 px-2 py-1 text-white">{formatPhase(context.phase)}</span>
@@ -89,43 +108,60 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
           <div className="rounded-md bg-slate-50 p-3">
             <p className="text-xs text-slate-500">当前导引</p>
             <p className="mt-1 font-semibold">
-              Day {context.today.dayIndex} · {context.today.date}
+              {context.phase === 'pretrip' ? '未成行规划管理' : `Day ${context.today.dayIndex} · ${context.today.date}`}
             </p>
           </div>
           <div className="rounded-md bg-slate-50 p-3">
             <p className="text-xs text-slate-500">待办</p>
-            <p className="mt-1 font-semibold">{context.todayTodos.length + context.upcomingTodos.length} 项待关注</p>
+            <p className="mt-1 font-semibold">
+              {activeTodos.length} 项待关注 · {completedCount} 项已完成
+            </p>
           </div>
         </div>
       </section>
 
+      <DestinationMap points={mapPoints} activeDayIndex={visibleDay.dayIndex} />
+
       <section className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <NextActionCard event={nextEvent} readOnly={readOnly} />
+        <NextActionCard
+          event={nextEvent}
+          readOnly={readOnly}
+          title={context.phase === 'pretrip' ? '首日计划预览' : undefined}
+        />
 
         <aside className="rounded-lg border border-amber-200 bg-amber-50 p-5">
           <p className="inline-flex items-center gap-2 text-sm font-medium text-amber-800">
             <AlertTriangle className="h-4 w-4" />
-            今日重点
+            {context.phase === 'pretrip' ? '行前重点' : '今日重点'}
           </p>
           <h2 className="mt-2 text-lg font-semibold">
-            Day {context.today.dayIndex} · {context.today.date}
+            Day {visibleDay.dayIndex} · {visibleDay.date}
           </h2>
-          <p className="mt-2 text-sm text-amber-900">{context.today.summary}</p>
+          <p className="mt-2 text-sm text-amber-900">{visibleDay.summary}</p>
         </aside>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
         <article className="rounded-lg border border-slate-200 bg-white p-5">
           <h2 className="inline-flex items-center gap-2 text-lg font-semibold">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-            今日待办
+            <ClipboardList className="h-5 w-5 text-emerald-600" />
+            行程待办
           </h2>
           <div className="mt-3 space-y-2">
-            {context.todayTodos.length === 0 ? <p className="text-sm text-slate-500">今天暂无待办。</p> : null}
-            {context.todayTodos.map((todo) => (
-              <div key={todo.id} className="rounded-md bg-slate-50 p-3 text-sm text-slate-700">
-                {todo.title}
-              </div>
+            {trip.todos?.length === 0 ? <p className="text-sm text-slate-500">暂无待办。</p> : null}
+            {(trip.todos ?? []).map((todo) => (
+              <label key={todo.id} className="flex items-start gap-3 rounded-md bg-slate-50 p-3 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={doneTodoIds.includes(todo.id) || todo.status === 'done'}
+                  disabled={readOnly}
+                  onChange={() => toggleTodo(todo.id)}
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600"
+                />
+                <span className={doneTodoIds.includes(todo.id) || todo.status === 'done' ? 'text-slate-400 line-through' : ''}>
+                  {todo.title}
+                </span>
+              </label>
             ))}
           </div>
         </article>
@@ -158,11 +194,11 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">
-          Day {context.today.dayIndex} · 时间线
+        <h2 id={`day-${visibleDay.dayIndex}`} className="scroll-mt-28 text-lg font-semibold">
+          Day {visibleDay.dayIndex} · 时间线
         </h2>
         <div className="space-y-3">
-          {context.today.events.map((event) => (
+          {visibleDay.events.map((event) => (
             <TimelineCard key={event.id} event={event} state={getEventState(event)} readOnly={readOnly} />
           ))}
         </div>
@@ -171,13 +207,20 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
       <section className="rounded-lg border border-slate-200 bg-white p-5">
         <h2 className="text-lg font-semibold">完整行程</h2>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
-          {trip.days.map((day) => (
-            <article key={day.id} className="rounded-md border border-slate-200 p-3">
+          {sortedDays.map((day) => (
+            <a
+              key={day.id}
+              href={`#day-${day.dayIndex}`}
+              onClick={() => setSelectedDayId(day.id)}
+              className={`rounded-md border p-3 transition hover:border-emerald-300 hover:bg-emerald-50 ${
+                visibleDay.id === day.id ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-white'
+              }`}
+            >
               <p className="font-medium">
                 Day {day.dayIndex} · {day.date}
               </p>
               <p className="mt-1 text-sm text-slate-600">{day.summary}</p>
-            </article>
+            </a>
           ))}
         </div>
       </section>
