@@ -1,4 +1,7 @@
 export type EventCategory = 'spot' | 'food' | 'hotel' | 'transport' | 'custom';
+export type EventStatus = 'planned' | 'active' | 'done' | 'skipped' | 'changed';
+export type TodoScope = 'trip' | 'day' | 'event';
+export type TodoStatus = 'open' | 'done' | 'blocked';
 
 export interface TripInput {
   title: string;
@@ -24,7 +27,21 @@ export interface TripEvent {
     lng: number;
   };
   externalLink?: string;
+  navigationUrl?: string;
   isCompleted?: boolean;
+  status?: EventStatus;
+}
+
+export interface TripTodo {
+  id: string;
+  tripId: string;
+  dayId?: string;
+  eventId?: string;
+  scope: TodoScope;
+  title: string;
+  dueDate?: string;
+  status: TodoStatus;
+  sortOrder: number;
 }
 
 export interface TripDay {
@@ -45,6 +62,7 @@ export interface TripWithDaysAndEvents {
   endDate?: string;
   status: 'planning' | 'active' | 'completed';
   days: TripDay[];
+  todos?: TripTodo[];
 }
 
 export interface GeneratedItinerary {

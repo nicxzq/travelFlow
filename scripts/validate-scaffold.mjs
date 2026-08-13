@@ -8,6 +8,7 @@ const requiredFiles = [
   'app/new/page.tsx',
   'app/trip/[id]/page.tsx',
   'app/trip/[id]/share/page.tsx',
+  'app/trip/page.tsx',
   'components/site-header.tsx',
   'lib/supabase/client.ts',
   'types/supabase.ts',
@@ -25,6 +26,12 @@ const requiredFiles = [
   'app/api/ai/generate/route.ts',
   'components/new-trip/generate-form.tsx',
   'lib/ai/openai-itinerary.ts',
+  'lib/mock/shanxi-loop.ts',
+  'lib/domain/trip-schedule.ts',
+  'components/trip/trip-workspace.tsx',
+  'components/trip/trip-library.tsx',
+  'document/迭代升级日志.md',
+  'document/Supabase同步设计文档.md',
 ];
 
 const requiredSnippets = [
@@ -110,7 +117,7 @@ const requiredSnippets = [
   },
   {
     file: 'components/new-trip/generate-form.tsx',
-    snippet: '基于画布二次完善',
+    snippet: '按当前结果继续优化',
     message: 'Refinement UI is missing',
   },
   {
@@ -120,13 +127,113 @@ const requiredSnippets = [
   },
   {
     file: 'components/new-trip/generate-form.tsx',
-    snippet: 'AI 流式输出中',
+    snippet: '生成过程',
     message: 'Streaming UI is missing',
   },
   {
     file: 'components/new-trip/generate-form.tsx',
     snippet: '本地行程管理',
     message: 'Itinerary management UI is missing',
+  },
+  {
+    file: 'app/page.tsx',
+    snippet: '管理员 carl-xu',
+    message: 'User support footer is missing',
+  },
+  {
+    file: 'app/page.tsx',
+    snippet: '版本号 1.0.0',
+    message: 'Version footer is missing',
+  },
+  {
+    file: 'app/trip/page.tsx',
+    snippet: 'TripLibrary',
+    message: 'Trip management page is missing',
+  },
+  {
+    file: 'components/trip/trip-library.tsx',
+    snippet: '历史行程',
+    message: 'Trip library history UI is missing',
+  },
+  {
+    file: 'components/new-trip/generate-form.tsx',
+    snippet: '热门 2 日游灵感',
+    message: 'Location-inspired prompt guidance is missing',
+  },
+  {
+    file: 'components/new-trip/generate-form.tsx',
+    snippet: 'showCode',
+    message: 'Generated itinerary code toggle is missing',
+  },
+  {
+    file: 'components/new-trip/generate-form.tsx',
+    snippet: 'disabled={loading || !itinerary}',
+    message: 'Regenerate button should be disabled before first itinerary',
+  },
+  {
+    file: 'components/new-trip/generate-form.tsx',
+    snippet: 'toast',
+    message: 'Temporary action feedback is missing',
+  },
+  {
+    file: 'components/new-trip/generate-form.tsx',
+    snippet: '生成进度',
+    message: 'Long-running generation progress UI is missing',
+  },
+  {
+    file: 'lib/mock/shanxi-loop.ts',
+    snippet: 'shanxiLoopTrip',
+    message: 'Shanxi loop seed trip is missing',
+  },
+  {
+    file: 'lib/mock/shanxi-loop.ts',
+    snippet: '长沙 → 长治 → 晋东南到晋南自驾环线',
+    message: 'Real Shanxi loop itinerary title is missing',
+  },
+  {
+    file: 'lib/domain/trip.ts',
+    snippet: 'export interface TripTodo',
+    message: 'Trip todo domain model is missing',
+  },
+  {
+    file: 'lib/domain/trip.ts',
+    snippet: 'navigationUrl?: string',
+    message: 'Navigation URL support is missing',
+  },
+  {
+    file: 'lib/domain/trip-schedule.ts',
+    snippet: 'export function getTripScheduleContext',
+    message: 'Trip schedule context selector is missing',
+  },
+  {
+    file: 'components/trip/trip-workspace.tsx',
+    snippet: '明日预告',
+    message: 'Tomorrow preview UI is missing',
+  },
+  {
+    file: 'components/trip/trip-workspace.tsx',
+    snippet: '今日待办',
+    message: 'Today todos UI is missing',
+  },
+  {
+    file: 'app/trip/[id]/share/page.tsx',
+    snippet: 'readOnly',
+    message: 'Share page does not reuse read-only trip workspace',
+  },
+  {
+    file: 'document/迭代升级日志.md',
+    snippet: 'v1.0.0',
+    message: 'Iteration upgrade log is missing v1.0.0',
+  },
+  {
+    file: 'document/Supabase同步设计文档.md',
+    snippet: 'Row Level Security',
+    message: 'Supabase sync design must cover RLS',
+  },
+  {
+    file: 'document/Supabase同步设计文档.md',
+    snippet: 'share_tokens',
+    message: 'Supabase sync design must cover share tokens',
   },
 ];
 
