@@ -15,6 +15,8 @@
 
 <!-- 格式：现象 → 原因 → 解法 -->
 
+- [2026-08-16] `service_role` 的 `supabase-js` 仍无法直接查询未暴露给 Data API 的 private schema；service role 只绕过 RLS，不绕过 PostgREST exposed-schema 白名单。需要通过 public schema 中严格收紧 EXECUTE 权限的 `SECURITY DEFINER` RPC 访问 private 凭证表。
+
 ## 我的纠正 / 偏好
 
 <!-- 我纠正过、或明确表达过的偏好，避免重犯 -->

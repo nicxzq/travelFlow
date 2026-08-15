@@ -188,6 +188,8 @@ MVP 不创建 `trip_members`。在没有正式成员账号之前，它不会增�
 
 `service_role` 只存在于服务端，并仅用于邀请 token 兑换、链接重建和必要的定时清理。正常页面读取、写入和 Realtime 订阅都使用当前用户会话，不能用 service role 绕过 RLS。
 
+private schema 不暴露给 Supabase Data API，因此服务端不能直接用 `supabase-js` 查询 private 表。邀请兑换与链接轮换通过 public schema 中受限的 `SECURITY DEFINER` RPC 完成：函数固定空 `search_path`、使用完全限定表名、撤销 `PUBLIC/anon/authenticated` 的默认执行权，仅授予 `service_role`。服务端先用用户会话验证当前身份，再调用对应 RPC。
+
 ## 7. 保存与实时同步
 
 ### 7.1 初始读取
