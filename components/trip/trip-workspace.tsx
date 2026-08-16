@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { AlertTriangle, BookOpenCheck, CalendarDays, ClipboardList, Lock, Share2 } from 'lucide-react';
+import { AlertTriangle, BookOpenCheck, CalendarDays, ClipboardList, Lock, RotateCcw, Share2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { getNextEvent, getTripScheduleContext } from '@/lib/domain/trip-schedule';
 import type { TripDay, TripEvent, TripWithDaysAndEvents } from '@/lib/domain/trip';
@@ -11,6 +11,17 @@ import { TimelineCard } from '@/components/trip/timeline-card';
 import { getDestinationMapPoints, type DestinationMapPoint } from '@/lib/mock/destination-map';
 import { getStudyCardForEvent, type StudyCard } from '@/lib/mock/study-cards';
 import { getStudyStorageKey, parseStudyProgress, serializeStudyProgress } from '@/lib/study/progress';
+import {
+  createTripChange,
+  getActiveTripChanges,
+  getTripExecutionStorageKey,
+  parseTripExecution,
+  serializeTripExecution,
+  type TripChange,
+  type TripChangeType,
+  type TripExecutionState,
+} from '@/lib/trip-execution/model';
+import { foldTripExecution, getScheduleConflicts } from '@/lib/trip-execution/reducer';
 
 type TripWorkspaceProps = {
   trip: TripWithDaysAndEvents;
@@ -95,41 +106,97 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
   const [doneTodoIds, setDoneTodoIds] = useState<string[]>([]);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [selectedPointId, setSelectedPointId] = useState<string | undefined>();
-  const [eventOverrides, setEventOverrides] = useState<Record<string, Partial<TripEvent>>>({});
-  const [deletedEventIds, setDeletedEventIds] = useState<string[]>([]);
+  const [executionState, setExecutionState] = useState<TripExecutionState>(() => parseTripExecution(null, trip).state);
+  const [hydratedExecutionTripId, setHydratedExecutionTripId] = useState<string | null>(null);
+  const [executionStorageHealthy, setExecutionStorageHealthy] = useState(true);
+  const [executionWarning, setExecutionWarning] = useState<string | null>(null);
   const [completedStudyTaskIds, setCompletedStudyTaskIds] = useState<string[]>([]);
   const [studyAnswers, setStudyAnswers] = useState<Record<string, string>>({});
   const [hydratedStudyTripId, setHydratedStudyTripId] = useState<string | null>(null);
-  const context = getTripScheduleContext(trip);
-  const sortedDays = useMemo(() => [...trip.days].sort((a, b) => a.dayIndex - b.dayIndex), [trip.days]);
-  const daysWithOverrides = useMemo(
+  const executionMatchesTrip = executionState.initialSnapshot.id === trip.id;
+  const currentTrip = useMemo(
+    () => (executionMatchesTrip ? foldTripExecution(executionState) : trip),
+    [executionMatchesTrip, executionState, trip],
+  );
+  const context = getTripScheduleContext(currentTrip);
+  const sortedDays = useMemo(() => [...currentTrip.days].sort((a, b) => a.dayIndex - b.dayIndex), [currentTrip.days]);
+  const displayDays = useMemo(
     () =>
       sortedDays.map((day) => ({
         ...day,
-        events: sortEventsForNow(
-          day.events
-            .filter((event) => !deletedEventIds.includes(event.id))
-            .map((event) => ({ ...event, ...eventOverrides[event.id] })),
-          day.date,
-        ),
+        events: sortEventsForNow(day.events, day.date),
       })),
-    [deletedEventIds, eventOverrides, sortedDays],
+    [sortedDays],
   );
   const sourceVisibleDay = sortedDays.find((day) => day.id === selectedDayId) ?? context.today;
-  const visibleDay = daysWithOverrides.find((day) => day.id === sourceVisibleDay.id) ?? sourceVisibleDay;
-  const tomorrow = context.tomorrow ? daysWithOverrides.find((day) => day.id === context.tomorrow?.id) : undefined;
-  const nextEvent = getDisplayNextEvent(visibleDay, context.phase);
-  const mapPoints = getDestinationMapPoints(trip.destination).filter((point) => !point.eventId || !deletedEventIds.includes(point.eventId));
-  const activeTodos = (trip.todos ?? [])
+  const visibleDay = displayDays.find((day) => day.id === sourceVisibleDay.id) ?? sourceVisibleDay;
+  const activeVisibleEvents = visibleDay.events.filter((event) => event.status !== 'cancelled');
+  const cancelledVisibleEvents = visibleDay.events.filter((event) => event.status === 'cancelled');
+  const tomorrow = context.tomorrow ? displayDays.find((day) => day.id === context.tomorrow?.id) : undefined;
+  const nextEvent = getDisplayNextEvent({ ...visibleDay, events: activeVisibleEvents }, context.phase);
+  const cancelledEventIds = new Set(currentTrip.days.flatMap((day) => day.events.filter((event) => event.status === 'cancelled').map((event) => event.id)));
+  const mapPoints = getDestinationMapPoints(currentTrip.destination).filter((point) => !point.eventId || !cancelledEventIds.has(point.eventId));
+  const activeTodos = (currentTrip.todos ?? [])
     .filter((todo) => !doneTodoIds.includes(todo.id) && todo.status !== 'done')
     .sort((a, b) => a.sortOrder - b.sortOrder);
-  const pretripTodos = activeTodos.filter((todo) => todo.scope === 'trip' || todo.dayId === sortedDays[0]?.id || todo.dueDate === trip.startDate);
-  const completedCount = (trip.todos ?? []).filter((todo) => doneTodoIds.includes(todo.id) || todo.status === 'done').length;
-  const visibleStudyCards = visibleDay.events.map(getStudyCardForEvent).filter(isStudyCard);
+  const pretripTodos = activeTodos.filter(
+    (todo) => todo.scope === 'trip' || todo.dayId === sortedDays[0]?.id || todo.dueDate === currentTrip.startDate,
+  );
+  const completedCount = (currentTrip.todos ?? []).filter((todo) => doneTodoIds.includes(todo.id) || todo.status === 'done').length;
+  const visibleStudyCards = activeVisibleEvents.map(getStudyCardForEvent).filter(isStudyCard);
+  const scheduleConflicts = useMemo(() => getScheduleConflicts(currentTrip), [currentTrip]);
+  const activeExecutionChanges = useMemo(
+    () => (executionMatchesTrip ? getActiveTripChanges(executionState.changes) : []),
+    [executionMatchesTrip, executionState.changes],
+  );
+  const visibleDayPosition = sortedDays.findIndex((day) => day.id === visibleDay.id);
+  const visibleNextDayId = visibleDayPosition >= 0 ? sortedDays[visibleDayPosition + 1]?.id : undefined;
   const pretripNotices = [
     visibleDay.summary,
     '导航、景区开放和天气以当天官方信息为准，长车程日优先保留还车和高速缓冲。',
   ].filter(Boolean);
+
+  useEffect(() => {
+    const storageKey = getTripExecutionStorageKey(trip.id);
+    setHydratedExecutionTripId(null);
+    setExecutionState(parseTripExecution(null, trip).state);
+    setExecutionWarning(null);
+
+    try {
+      const result = parseTripExecution(window.localStorage.getItem(storageKey), trip);
+      setExecutionState(result.state);
+      setExecutionStorageHealthy(!result.invalid);
+      if (result.invalid) {
+        setExecutionWarning('本地行程变更记录已损坏，当前暂用原计划展示；为避免覆盖，已暂停本地保存。');
+      }
+    } catch {
+      setExecutionStorageHealthy(false);
+      setExecutionWarning('浏览器暂时无法读取本地行程记录，本次修改刷新后可能丢失。');
+    } finally {
+      setHydratedExecutionTripId(trip.id);
+    }
+  }, [trip]);
+
+  useEffect(() => {
+    if (
+      hydratedExecutionTripId !== trip.id ||
+      executionState.initialSnapshot.id !== trip.id ||
+      !executionStorageHealthy
+    ) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      try {
+        window.localStorage.setItem(getTripExecutionStorageKey(trip.id), serializeTripExecution(executionState));
+      } catch {
+        setExecutionStorageHealthy(false);
+        setExecutionWarning('浏览器无法保存最新行程变更，本次修改刷新后可能丢失。');
+      }
+    }, 400);
+
+    return () => window.clearTimeout(timer);
+  }, [executionState, executionStorageHealthy, hydratedExecutionTripId, trip.id]);
 
   useEffect(() => {
     const storageKey = getStudyStorageKey(trip.id);
@@ -170,23 +237,68 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
     setDoneTodoIds((current) => (current.includes(todoId) ? current.filter((id) => id !== todoId) : [...current, todoId]));
   }
 
-  function updateEvent(eventId: string, patch: Partial<TripEvent>) {
-    setEventOverrides((current) => ({
-      ...current,
-      [eventId]: {
-        ...current[eventId],
-        ...patch,
-      },
-    }));
+  function appendExecutionChange(change: TripChange) {
+    if (readOnly || change.tripId !== trip.id) return;
+    setExecutionState((current) =>
+      current.initialSnapshot.id === trip.id ? { ...current, changes: [...current.changes, change] } : current,
+    );
   }
 
-  function deleteEvent(eventId: string) {
-    setDeletedEventIds((current) => (current.includes(eventId) ? current : [...current, eventId]));
+  function makeChange(type: TripChangeType, eventId: string, payload: Record<string, unknown>, undoOf?: string) {
+    return createTripChange({ tripId: trip.id, type, eventId, payload, undoOf });
+  }
+
+  function updateEvent(eventId: string, patch: Partial<TripEvent>) {
+    appendExecutionChange(makeChange('update', eventId, { patch }));
+  }
+
+  function postponeEvent(eventId: string, minutes: number) {
+    appendExecutionChange(makeChange('postpone', eventId, { minutes }));
+  }
+
+  function moveEvent(eventId: string, targetDayId: string) {
+    if (currentTrip.days.some((day) => day.id === targetDayId)) {
+      appendExecutionChange(makeChange('move', eventId, { targetDayId }));
+      setSelectedDayId(targetDayId);
+    }
+  }
+
+  function swapEvents(eventId: string, otherEventId: string) {
+    appendExecutionChange(makeChange('swap', eventId, { otherEventId }));
+  }
+
+  function cancelEvent(eventId: string) {
+    appendExecutionChange(makeChange('cancel', eventId, {}));
+  }
+
+  function undoEventChange(eventId: string, type: TripChangeType) {
+    const change = [...activeExecutionChanges]
+      .reverse()
+      .find((candidate) => candidate.eventId === eventId && candidate.type === type);
+    if (change) appendExecutionChange(makeChange('undo', eventId, {}, change.id));
+  }
+
+  function restoreEvent(eventId: string) {
+    undoEventChange(eventId, 'cancel');
+  }
+
+  function toggleActualComplete(eventId: string) {
+    const event = currentTrip.days.flatMap((day) => day.events).find((candidate) => candidate.id === eventId);
+    if (event?.actualStatus === 'completed') {
+      undoEventChange(eventId, 'actual-complete');
+    } else {
+      appendExecutionChange(makeChange('actual-complete', eventId, { actualAt: new Date().toISOString() }));
+    }
+  }
+
+  function undoLatestChange() {
+    const latest = activeExecutionChanges.at(-1);
+    if (latest) appendExecutionChange(makeChange('undo', latest.eventId, {}, latest.id));
   }
 
   function selectMapPoint(point: DestinationMapPoint) {
     setSelectedPointId(point.id);
-    const day = daysWithOverrides.find((item) => item.dayIndex === point.dayIndex);
+    const day = displayDays.find((item) => item.dayIndex === point.dayIndex);
     if (day) setSelectedDayId(day.id);
     window.requestAnimationFrame(() => {
       document.getElementById(`day-${point.dayIndex}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -239,9 +351,9 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
           )}
         </div>
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">{trip.title}</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">{currentTrip.title}</h1>
           <p className="mt-2 text-slate-600">
-            {trip.destination} · {trip.startDate} ~ {trip.endDate}
+            {currentTrip.destination} · {currentTrip.startDate} ~ {currentTrip.endDate}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -259,6 +371,35 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
           ) : null}
         </div>
       </header>
+
+      {executionWarning && hydratedExecutionTripId === trip.id ? (
+        <section role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+          {executionWarning}
+        </section>
+      ) : null}
+
+      {!readOnly && activeExecutionChanges.length > 0 ? (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <div>
+            <p className="text-sm font-medium text-blue-950">已记录 {activeExecutionChanges.length} 次有效调整</p>
+            <p className="mt-1 text-xs text-blue-800">初始计划保持不变，当前安排由变更记录计算。</p>
+          </div>
+          <button
+            type="button"
+            onClick={undoLatestChange}
+            className="inline-flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+          >
+            <RotateCcw className="h-4 w-4" />
+            撤销最近修改
+          </button>
+        </section>
+      ) : null}
+
+      {scheduleConflicts.length > 0 ? (
+        <section role="status" className="rounded-lg border border-orange-300 bg-orange-50 p-4 text-sm text-orange-950">
+          当前有 {scheduleConflicts.length} 处时间重叠，请检查受影响日期；系统不会自动压缩游玩时间。
+        </section>
+      ) : null}
 
       {context.phase === 'pretrip' ? (
         <section className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
@@ -307,7 +448,7 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <div className="rounded-md bg-slate-50 p-3">
             <p className="text-xs text-slate-500">天数</p>
-            <p className="mt-1 font-semibold">{trip.days.length} 天</p>
+            <p className="mt-1 font-semibold">{currentTrip.days.length} 天</p>
           </div>
           <div className="rounded-md bg-slate-50 p-3">
             <p className="text-xs text-slate-500">当前导引</p>
@@ -361,8 +502,8 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
               行程待办
             </h2>
             <div className="mt-3 space-y-2">
-              {trip.todos?.length === 0 ? <p className="text-sm text-slate-500">暂无待办。</p> : null}
-              {(trip.todos ?? []).map((todo) => (
+              {currentTrip.todos?.length === 0 ? <p className="text-sm text-slate-500">暂无待办。</p> : null}
+              {(currentTrip.todos ?? []).map((todo) => (
                 <label key={todo.id} className="flex items-start gap-3 rounded-md bg-slate-50 p-3 text-sm text-slate-700">
                   <input
                     type="checkbox"
@@ -415,7 +556,7 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
                 <p className="mt-1 text-sm text-slate-600">{tomorrow.summary}</p>
               </div>
               <div className="space-y-2">
-                {tomorrow.events.slice(0, 3).map((event) => (
+                {tomorrow.events.filter((event) => event.status !== 'cancelled').slice(0, 3).map((event) => (
                   <div key={event.id} className="rounded-md bg-slate-50 p-3 text-sm">
                     <span className="font-medium">{event.startTime ?? '--:--'}</span> · {event.title}
                   </div>
@@ -433,8 +574,8 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
           Day {visibleDay.dayIndex} · 时间线
         </h2>
         <div className="space-y-3">
-          {visibleDay.events.length === 0 ? <p className="rounded-lg border border-slate-200 bg-white p-5 text-sm text-slate-500">当天行程已删除或暂无安排。</p> : null}
-          {visibleDay.events.map((event) => (
+          {activeVisibleEvents.length === 0 ? <p className="rounded-lg border border-slate-200 bg-white p-5 text-sm text-slate-500">当天暂无有效安排。</p> : null}
+          {activeVisibleEvents.map((event, index) => (
             <TimelineCard
               key={event.id}
               event={event}
@@ -443,14 +584,41 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
               studyCard={getStudyCardForEvent(event)}
               completedStudyTaskIds={completedStudyTaskIds}
               studyAnswers={studyAnswers}
+              availableDays={sortedDays}
+              nextDayId={visibleNextDayId}
+              nextEventId={activeVisibleEvents[index + 1]?.id}
               onChange={updateEvent}
-              onDelete={deleteEvent}
+              onPostpone={postponeEvent}
+              onMove={moveEvent}
+              onSwap={swapEvents}
+              onCancel={cancelEvent}
+              onRestore={restoreEvent}
+              onToggleActualComplete={toggleActualComplete}
               onToggleStudyTask={toggleStudyTask}
               onStudyAnswerChange={updateStudyAnswer}
             />
           ))}
         </div>
       </section>
+
+      {cancelledVisibleEvents.length > 0 ? (
+        <section className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <div>
+            <h2 className="font-semibold text-slate-800">已取消</h2>
+            <p className="mt-1 text-xs text-slate-500">取消记录仍会保留，用于撤销和旅行复盘，不等于永久删除。</p>
+          </div>
+          {cancelledVisibleEvents.map((event) => (
+            <TimelineCard
+              key={event.id}
+              event={event}
+              state="past"
+              readOnly={readOnly}
+              availableDays={sortedDays}
+              onRestore={restoreEvent}
+            />
+          ))}
+        </section>
+      ) : null}
 
       <section className="rounded-lg border border-slate-200 bg-white p-5">
         <h2 className="text-lg font-semibold">完整行程</h2>

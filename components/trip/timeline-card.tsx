@@ -1,9 +1,10 @@
 'use client';
 
-import { BookOpenCheck, Check, ChevronDown, Clock3, Edit3, ExternalLink, Navigation, Search, Trash2, X } from 'lucide-react';
+import { BookOpenCheck, Check, ChevronDown, Clock3, Edit3, ExternalLink, Navigation, Search, X } from 'lucide-react';
 import Image from 'next/image';
 import { useState } from 'react';
-import type { TripEvent } from '@/lib/domain/trip';
+import { EventQuickActions } from '@/components/trip/event-quick-actions';
+import type { TripDay, TripEvent } from '@/lib/domain/trip';
 import type { StudyCard } from '@/lib/mock/study-cards';
 
 type TimelineCardProps = {
@@ -13,8 +14,16 @@ type TimelineCardProps = {
   studyCard?: StudyCard;
   completedStudyTaskIds?: string[];
   studyAnswers?: Record<string, string>;
+  availableDays?: Array<Pick<TripDay, 'id' | 'dayIndex' | 'date'>>;
+  nextDayId?: string;
+  nextEventId?: string;
   onChange?: (eventId: string, patch: Partial<TripEvent>) => void;
-  onDelete?: (eventId: string) => void;
+  onPostpone?: (eventId: string, minutes: number) => void;
+  onMove?: (eventId: string, targetDayId: string) => void;
+  onSwap?: (eventId: string, otherEventId: string) => void;
+  onCancel?: (eventId: string) => void;
+  onRestore?: (eventId: string) => void;
+  onToggleActualComplete?: (eventId: string) => void;
   onToggleStudyTask?: (taskId: string) => void;
   onStudyAnswerChange?: (taskId: string, answer: string) => void;
 };
@@ -38,15 +47,22 @@ export function TimelineCard({
   studyCard,
   completedStudyTaskIds = [],
   studyAnswers = {},
+  availableDays = [],
+  nextDayId,
+  nextEventId,
   onChange,
-  onDelete,
+  onPostpone,
+  onMove,
+  onSwap,
+  onCancel,
+  onRestore,
+  onToggleActualComplete,
   onToggleStudyTask,
   onStudyAnswerChange,
 }: TimelineCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isStudyOpen, setIsStudyOpen] = useState(false);
   const [openReferenceTaskIds, setOpenReferenceTaskIds] = useState<string[]>([]);
-  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState({
     startTime: event.startTime ?? '',
@@ -56,7 +72,9 @@ export function TimelineCard({
     locationName: event.locationName ?? '',
   });
   const style =
-    state === 'active'
+    event.status === 'cancelled'
+      ? 'border-slate-300 bg-slate-100 opacity-75'
+      : state === 'active'
       ? 'border-emerald-300 bg-emerald-50 shadow-md shadow-emerald-100'
       : state === 'past'
         ? 'border-slate-200 bg-slate-100 opacity-70'
@@ -185,7 +203,7 @@ export function TimelineCard({
             </button>
           </>
         ) : null}
-        {event.navigationUrl ? (
+        {event.navigationUrl && event.status !== 'cancelled' ? (
           <a
             href={event.navigationUrl}
             target="_blank"
@@ -196,10 +214,19 @@ export function TimelineCard({
             导航前往
           </a>
         ) : null}
-        {!readOnly && !isEditing ? (
+        {!readOnly && !isEditing && event.status !== 'cancelled' ? (
           <button
             type="button"
-            onClick={() => setIsEditing(true)}
+            onClick={() => {
+              setDraft({
+                startTime: event.startTime ?? '',
+                endTime: event.endTime ?? '',
+                title: event.title,
+                description: event.description ?? '',
+                locationName: event.locationName ?? '',
+              });
+              setIsEditing(true);
+            }}
             className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             <Edit3 className="h-4 w-4" />
@@ -207,24 +234,18 @@ export function TimelineCard({
           </button>
         ) : null}
         {!readOnly && !isEditing ? (
-          <button
-            type="button"
-            onClick={() => {
-              if (!isConfirmingDelete) {
-                setIsConfirmingDelete(true);
-                return;
-              }
-              onDelete?.(event.id);
-            }}
-            className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium ${
-              isConfirmingDelete
-                ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
-                : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-            }`}
-          >
-            <Trash2 className="h-4 w-4" />
-            {isConfirmingDelete ? '确认删除' : '删除'}
-          </button>
+          <EventQuickActions
+            event={event}
+            days={availableDays}
+            nextDayId={nextDayId}
+            canSwapNext={Boolean(nextEventId)}
+            onPostpone={(minutes) => onPostpone?.(event.id, minutes)}
+            onMove={(targetDayId) => onMove?.(event.id, targetDayId)}
+            onSwapNext={() => nextEventId && onSwap?.(event.id, nextEventId)}
+            onCancel={() => onCancel?.(event.id)}
+            onRestore={() => onRestore?.(event.id)}
+            onToggleComplete={() => onToggleActualComplete?.(event.id)}
+          />
         ) : null}
         {studyCard ? (
           <button
@@ -241,6 +262,12 @@ export function TimelineCard({
         {readOnly ? <span className="rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-500">只读</span> : null}
         {state === 'active' ? (
           <span className="rounded-md bg-emerald-100 px-3 py-2 text-sm font-medium text-emerald-800">进行中</span>
+        ) : null}
+        {event.actualStatus === 'completed' ? (
+          <span className="rounded-md bg-blue-100 px-3 py-2 text-sm font-medium text-blue-800">实际已完成</span>
+        ) : null}
+        {event.status === 'cancelled' ? (
+          <span className="rounded-md bg-slate-200 px-3 py-2 text-sm font-medium text-slate-700">已取消 · 记录保留</span>
         ) : null}
       </div>
 

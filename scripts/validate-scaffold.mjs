@@ -31,6 +31,9 @@ const requiredFiles = [
   'lib/mock/study-cards.ts',
   'lib/domain/trip-schedule.ts',
   'lib/study/progress.ts',
+  'lib/trip-execution/model.ts',
+  'lib/trip-execution/reducer.ts',
+  'components/trip/event-quick-actions.tsx',
   'components/trip/trip-workspace.tsx',
   'components/trip/trip-library.tsx',
   'document/迭代升级日志.md',
@@ -234,6 +237,31 @@ const requiredSnippets = [
     file: 'components/trip/trip-workspace.tsx',
     snippet: '400',
     message: 'Study progress needs a 400ms persistence debounce',
+  },
+  {
+    file: 'components/trip/trip-workspace.tsx',
+    snippet: 'getTripExecutionStorageKey',
+    message: 'Trip execution storage hydration is missing',
+  },
+  {
+    file: 'components/trip/trip-workspace.tsx',
+    snippet: 'undoOf',
+    message: 'Append-only trip undo is missing',
+  },
+  {
+    file: 'components/trip/event-quick-actions.tsx',
+    snippet: '推迟 30 分钟',
+    message: 'Quick postpone action is missing',
+  },
+  {
+    file: 'components/trip/event-quick-actions.tsx',
+    snippet: '标记取消',
+    message: 'Safe cancel action is missing',
+  },
+  {
+    file: 'components/trip/event-quick-actions.tsx',
+    snippet: '用于撤销和旅行复盘',
+    message: 'Cancel retention explanation is missing',
   },
   {
     file: 'components/trip/trip-workspace.tsx',
