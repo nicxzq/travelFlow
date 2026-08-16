@@ -25,6 +25,7 @@ export type ExecutionReviewRow = {
   currentStartTime?: string;
   cancelled: boolean;
   actualAt?: string;
+  deviationMinutes?: number;
   changed: boolean;
 };
 
@@ -35,6 +36,19 @@ export type ExecutionReview = {
   cancelledEventIds: string[];
   completedEventIds: string[];
   rows: ExecutionReviewRow[];
+};
+
+export type GeoPoint = {
+  lat: number;
+  lng: number;
+};
+
+export type RecommendationPromptInput = {
+  placeName: string;
+  availableHours: number;
+  tripTitle: string;
+  coordinates?: GeoPoint;
+  remainingEvents?: string[];
 };
 
 type EventLocation = {
@@ -242,6 +256,7 @@ export function getExecutionReview(state: TripExecutionState): ExecutionReview {
   }
 
   const initialEvents = state.initialSnapshot.days.flatMap((day) => day.events);
+  const initialDayDates = new Map(state.initialSnapshot.days.map((day) => [day.id, day.date]));
   const currentEvents = current.days.flatMap((day) => day.events);
   const currentById = new Map(currentEvents.map((event) => [event.id, event]));
   const rows = initialEvents.map((initialEvent) => {
@@ -253,6 +268,12 @@ export function getExecutionReview(state: TripExecutionState): ExecutionReview {
       currentEvent.title !== initialEvent.title ||
       currentEvent.status === 'cancelled' ||
       currentEvent.actualStatus === 'completed';
+    const initialDate = initialDayDates.get(initialEvent.dayId);
+    const plannedAt =
+      initialDate && initialEvent.startTime ? new Date(`${initialDate}T${initialEvent.startTime}:00+08:00`).getTime() : Number.NaN;
+    const actualAt = currentEvent.actualAt ? new Date(currentEvent.actualAt).getTime() : Number.NaN;
+    const deviationMinutes =
+      Number.isFinite(plannedAt) && Number.isFinite(actualAt) ? Math.round((actualAt - plannedAt) / 60000) : undefined;
     return {
       eventId: initialEvent.id,
       title: currentEvent.title,
@@ -262,6 +283,7 @@ export function getExecutionReview(state: TripExecutionState): ExecutionReview {
       currentStartTime: currentEvent.startTime,
       cancelled: currentEvent.status === 'cancelled',
       actualAt: currentEvent.actualAt,
+      deviationMinutes,
       changed,
     };
   });
@@ -274,4 +296,36 @@ export function getExecutionReview(state: TripExecutionState): ExecutionReview {
     completedEventIds: currentEvents.filter((event) => event.actualStatus === 'completed').map((event) => event.id),
     rows,
   };
+}
+
+export function distanceInKilometers(from: GeoPoint, to: GeoPoint) {
+  const earthRadius = 6371;
+  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+  const latitudeDelta = toRadians(to.lat - from.lat);
+  const longitudeDelta = toRadians(to.lng - from.lng);
+  const fromLatitude = toRadians(from.lat);
+  const toLatitude = toRadians(to.lat);
+  const haversine =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(fromLatitude) * Math.cos(toLatitude) * Math.sin(longitudeDelta / 2) ** 2;
+
+  return 2 * earthRadius * Math.asin(Math.sqrt(haversine));
+}
+
+export function buildRecommendationPrompt(input: RecommendationPromptInput) {
+  const coordinateLine = input.coordinates
+    ? `当前位置坐标：${input.coordinates.lat.toFixed(5)}, ${input.coordinates.lng.toFixed(5)}。`
+    : '没有提供精确坐标，请以当前地点名称为中心检索。';
+  const remainingLine = input.remainingEvents?.length
+    ? `当前行程尚有：${input.remainingEvents.join('、')}。请避免推荐明显重复的地点。`
+    : '当前没有可用的剩余行程清单。';
+
+  return [
+    `我正在执行“${input.tripTitle}”，目前在${input.placeName}附近，可用时间约 ${input.availableHours} 小时。`,
+    coordinateLine,
+    remainingLine,
+    '请分别推荐：适合半天的附近景点、性价比餐厅、适合家庭入住的酒店。',
+    '请综合可合法访问的地图、官方页面和平台公开结果，并标注每条建议的距离、适合时长、营业状态、价格区间与推荐理由。',
+    '请标注来源和更新时间；无法核验的字段写“待核验”，不要虚构评分或价格。',
+  ].join('\n');
 }

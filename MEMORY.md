@@ -18,6 +18,7 @@
 <!-- 格式：现象 → 原因 → 解法 -->
 
 - [2026-08-16] `service_role` 的 `supabase-js` 仍无法直接查询未暴露给 Data API 的 private schema；service role 只绕过 RLS，不绕过 PostgREST exposed-schema 白名单。需要通过 public schema 中严格收紧 EXECUTE 权限的 `SECURITY DEFINER` RPC 访问 private 凭证表。
+- [2026-08-17] npm 访问官方 registry 报 `UNABLE_TO_GET_ISSUER_CERT_LOCALLY` 时，不要关闭 TLS 校验；本机可用 `NODE_USE_SYSTEM_CA=1 npm ...` 安全复用系统 CA，已验证依赖安装、typecheck 和 Next build 均可正常完成。
 
 ## 我的纠正 / 偏好
 

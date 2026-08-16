@@ -34,6 +34,8 @@ const requiredFiles = [
   'lib/trip-execution/model.ts',
   'lib/trip-execution/reducer.ts',
   'components/trip/event-quick-actions.tsx',
+  'components/trip/nearby-decision-card.tsx',
+  'components/trip/trip-review-card.tsx',
   'components/trip/trip-workspace.tsx',
   'components/trip/trip-library.tsx',
   'document/迭代升级日志.md',
@@ -262,6 +264,21 @@ const requiredSnippets = [
     file: 'components/trip/event-quick-actions.tsx',
     snippet: '用于撤销和旅行复盘',
     message: 'Cancel retention explanation is missing',
+  },
+  {
+    file: 'components/trip/nearby-decision-card.tsx',
+    snippet: '行程内附近备选',
+    message: 'Local nearby fallback is missing',
+  },
+  {
+    file: 'components/trip/nearby-decision-card.tsx',
+    snippet: '不要虚构评分或价格',
+    message: 'Recommendation trust guardrail is missing',
+  },
+  {
+    file: 'components/trip/trip-review-card.tsx',
+    snippet: '行程执行复盘',
+    message: 'Deterministic trip review is missing',
   },
   {
     file: 'components/trip/trip-workspace.tsx',

@@ -7,7 +7,9 @@ import { getNextEvent, getTripScheduleContext } from '@/lib/domain/trip-schedule
 import type { TripDay, TripEvent, TripWithDaysAndEvents } from '@/lib/domain/trip';
 import { DestinationMap } from '@/components/trip/destination-map';
 import { NextActionCard } from '@/components/trip/next-action-card';
+import { NearbyDecisionCard } from '@/components/trip/nearby-decision-card';
 import { TimelineCard } from '@/components/trip/timeline-card';
+import { TripReviewCard } from '@/components/trip/trip-review-card';
 import { getDestinationMapPoints, type DestinationMapPoint } from '@/lib/mock/destination-map';
 import { getStudyCardForEvent, type StudyCard } from '@/lib/mock/study-cards';
 import { getStudyStorageKey, parseStudyProgress, serializeStudyProgress } from '@/lib/study/progress';
@@ -21,7 +23,7 @@ import {
   type TripChangeType,
   type TripExecutionState,
 } from '@/lib/trip-execution/model';
-import { foldTripExecution, getScheduleConflicts } from '@/lib/trip-execution/reducer';
+import { foldTripExecution, getExecutionReview, getScheduleConflicts } from '@/lib/trip-execution/reducer';
 
 type TripWorkspaceProps = {
   trip: TripWithDaysAndEvents;
@@ -145,6 +147,10 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
   const completedCount = (currentTrip.todos ?? []).filter((todo) => doneTodoIds.includes(todo.id) || todo.status === 'done').length;
   const visibleStudyCards = activeVisibleEvents.map(getStudyCardForEvent).filter(isStudyCard);
   const scheduleConflicts = useMemo(() => getScheduleConflicts(currentTrip), [currentTrip]);
+  const executionReview = useMemo(
+    () => getExecutionReview(executionMatchesTrip ? executionState : parseTripExecution(null, trip).state),
+    [executionMatchesTrip, executionState, trip],
+  );
   const activeExecutionChanges = useMemo(
     () => (executionMatchesTrip ? getActiveTripChanges(executionState.changes) : []),
     [executionMatchesTrip, executionState.changes],
@@ -494,6 +500,8 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
         </section>
       )}
 
+      {context.phase === 'intrip' ? <NearbyDecisionCard trip={currentTrip} currentEvent={nextEvent} mapPoints={mapPoints} /> : null}
+
       <section className="grid gap-4 lg:grid-cols-2">
         {context.phase === 'pretrip' ? null : (
           <article className="rounded-lg border border-slate-200 bg-white p-5">
@@ -619,6 +627,8 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
           ))}
         </section>
       ) : null}
+
+      {context.phase === 'pretrip' ? null : <TripReviewCard trip={currentTrip} review={executionReview} />}
 
       <section className="rounded-lg border border-slate-200 bg-white p-5">
         <h2 className="text-lg font-semibold">完整行程</h2>
