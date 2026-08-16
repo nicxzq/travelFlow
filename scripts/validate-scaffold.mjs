@@ -30,6 +30,7 @@ const requiredFiles = [
   'lib/mock/shanxi-loop.ts',
   'lib/mock/study-cards.ts',
   'lib/domain/trip-schedule.ts',
+  'lib/study/progress.ts',
   'components/trip/trip-workspace.tsx',
   'components/trip/trip-library.tsx',
   'document/迭代升级日志.md',
@@ -218,6 +219,21 @@ const requiredSnippets = [
     file: 'lib/domain/trip-schedule.ts',
     snippet: 'export function getTripScheduleContext',
     message: 'Trip schedule context selector is missing',
+  },
+  {
+    file: 'lib/study/progress.ts',
+    snippet: 'version: 1',
+    message: 'Study progress needs a versioned payload',
+  },
+  {
+    file: 'lib/study/progress.ts',
+    snippet: 'travelflow:study:',
+    message: 'Study progress needs a trip-scoped storage key',
+  },
+  {
+    file: 'components/trip/trip-workspace.tsx',
+    snippet: '400',
+    message: 'Study progress needs a 400ms persistence debounce',
   },
   {
     file: 'components/trip/trip-workspace.tsx',

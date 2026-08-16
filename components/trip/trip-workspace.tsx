@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { AlertTriangle, BookOpenCheck, CalendarDays, ClipboardList, Lock, Share2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getNextEvent, getTripScheduleContext } from '@/lib/domain/trip-schedule';
 import type { TripDay, TripEvent, TripWithDaysAndEvents } from '@/lib/domain/trip';
 import { DestinationMap } from '@/components/trip/destination-map';
@@ -10,6 +10,7 @@ import { NextActionCard } from '@/components/trip/next-action-card';
 import { TimelineCard } from '@/components/trip/timeline-card';
 import { getDestinationMapPoints, type DestinationMapPoint } from '@/lib/mock/destination-map';
 import { getStudyCardForEvent, type StudyCard } from '@/lib/mock/study-cards';
+import { getStudyStorageKey, parseStudyProgress, serializeStudyProgress } from '@/lib/study/progress';
 
 type TripWorkspaceProps = {
   trip: TripWithDaysAndEvents;
@@ -97,6 +98,8 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
   const [eventOverrides, setEventOverrides] = useState<Record<string, Partial<TripEvent>>>({});
   const [deletedEventIds, setDeletedEventIds] = useState<string[]>([]);
   const [completedStudyTaskIds, setCompletedStudyTaskIds] = useState<string[]>([]);
+  const [studyAnswers, setStudyAnswers] = useState<Record<string, string>>({});
+  const [hasHydratedStudyProgress, setHasHydratedStudyProgress] = useState(false);
   const context = getTripScheduleContext(trip);
   const sortedDays = useMemo(() => [...trip.days].sort((a, b) => a.dayIndex - b.dayIndex), [trip.days]);
   const daysWithOverrides = useMemo(
@@ -127,6 +130,40 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
     visibleDay.summary,
     '导航、景区开放和天气以当天官方信息为准，长车程日优先保留还车和高速缓冲。',
   ].filter(Boolean);
+
+  useEffect(() => {
+    const storageKey = getStudyStorageKey(trip.id);
+    setHasHydratedStudyProgress(false);
+
+    try {
+      const result = parseStudyProgress(window.localStorage.getItem(storageKey));
+      setCompletedStudyTaskIds(result.state.completedTaskIds);
+      setStudyAnswers(result.state.answers);
+      if (result.invalid) window.localStorage.removeItem(storageKey);
+    } catch {
+      setCompletedStudyTaskIds([]);
+      setStudyAnswers({});
+    } finally {
+      setHasHydratedStudyProgress(true);
+    }
+  }, [trip.id]);
+
+  useEffect(() => {
+    if (!hasHydratedStudyProgress) return undefined;
+
+    const timer = window.setTimeout(() => {
+      try {
+        window.localStorage.setItem(
+          getStudyStorageKey(trip.id),
+          serializeStudyProgress({ completedTaskIds: completedStudyTaskIds, answers: studyAnswers }),
+        );
+      } catch {
+        // Keep the in-memory answers usable when browser storage is unavailable.
+      }
+    }, 400);
+
+    return () => window.clearTimeout(timer);
+  }, [completedStudyTaskIds, hasHydratedStudyProgress, studyAnswers, trip.id]);
 
   function toggleTodo(todoId: string) {
     if (readOnly) return;
@@ -166,6 +203,22 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
   function toggleStudyTask(taskId: string) {
     if (readOnly) return;
     setCompletedStudyTaskIds((current) => (current.includes(taskId) ? current.filter((id) => id !== taskId) : [...current, taskId]));
+  }
+
+  function updateStudyAnswer(taskId: string, value: string) {
+    if (readOnly) return;
+    const trimmed = value.trim();
+
+    setStudyAnswers((current) => {
+      const next = { ...current };
+      if (trimmed) next[taskId] = value;
+      else delete next[taskId];
+      return next;
+    });
+
+    if (trimmed) {
+      setCompletedStudyTaskIds((current) => (current.includes(taskId) ? current : [...current, taskId]));
+    }
   }
 
   return (
@@ -389,9 +442,11 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
               readOnly={readOnly}
               studyCard={getStudyCardForEvent(event)}
               completedStudyTaskIds={completedStudyTaskIds}
+              studyAnswers={studyAnswers}
               onChange={updateEvent}
               onDelete={deleteEvent}
               onToggleStudyTask={toggleStudyTask}
+              onStudyAnswerChange={updateStudyAnswer}
             />
           ))}
         </div>

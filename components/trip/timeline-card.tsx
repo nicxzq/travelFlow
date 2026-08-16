@@ -12,9 +12,11 @@ type TimelineCardProps = {
   readOnly?: boolean;
   studyCard?: StudyCard;
   completedStudyTaskIds?: string[];
+  studyAnswers?: Record<string, string>;
   onChange?: (eventId: string, patch: Partial<TripEvent>) => void;
   onDelete?: (eventId: string) => void;
   onToggleStudyTask?: (taskId: string) => void;
+  onStudyAnswerChange?: (taskId: string, answer: string) => void;
 };
 
 const categoryLabels: Record<TripEvent['category'], string> = {
@@ -35,9 +37,11 @@ export function TimelineCard({
   readOnly = false,
   studyCard,
   completedStudyTaskIds = [],
+  studyAnswers = {},
   onChange,
   onDelete,
   onToggleStudyTask,
+  onStudyAnswerChange,
 }: TimelineCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isStudyOpen, setIsStudyOpen] = useState(false);
