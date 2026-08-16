@@ -1,5 +1,5 @@
 export type EventCategory = 'spot' | 'food' | 'hotel' | 'transport' | 'custom';
-export type EventStatus = 'planned' | 'active' | 'done' | 'skipped' | 'changed';
+export type EventStatus = 'planned' | 'active' | 'done' | 'skipped' | 'changed' | 'cancelled';
 export type TodoScope = 'trip' | 'day' | 'event';
 export type TodoStatus = 'open' | 'done' | 'blocked';
 
@@ -28,7 +28,10 @@ export interface TripEvent {
   };
   externalLink?: string;
   navigationUrl?: string;
+  sortOrder?: number;
   isCompleted?: boolean;
+  actualAt?: string;
+  actualStatus?: 'completed';
   status?: EventStatus;
 }
 
