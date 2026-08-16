@@ -1,6 +1,6 @@
 'use client';
 
-import { BookOpenCheck, Check, Clock3, Edit3, ExternalLink, Navigation, Search, Trash2, X } from 'lucide-react';
+import { BookOpenCheck, Check, ChevronDown, Clock3, Edit3, ExternalLink, Navigation, Search, Trash2, X } from 'lucide-react';
 import Image from 'next/image';
 import { useState } from 'react';
 import type { TripEvent } from '@/lib/domain/trip';
@@ -45,6 +45,7 @@ export function TimelineCard({
 }: TimelineCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isStudyOpen, setIsStudyOpen] = useState(false);
+  const [openReferenceTaskIds, setOpenReferenceTaskIds] = useState<string[]>([]);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState({
@@ -60,8 +61,9 @@ export function TimelineCard({
       : state === 'past'
         ? 'border-slate-200 bg-slate-100 opacity-70'
         : 'border-slate-200 bg-white';
-  const completedCount = studyCard?.tasks.filter((_, index) => completedStudyTaskIds.includes(`${studyCard.id}-${index}`)).length ?? 0;
+  const completedCount = studyCard?.tasks.filter((task) => completedStudyTaskIds.includes(task.id)).length ?? 0;
   const progress = studyCard ? Math.round((completedCount / studyCard.tasks.length) * 100) : 0;
+  const studyPanelId = `${event.id}-study-panel`;
 
   return (
     <article className={`rounded-xl border p-4 shadow-sm transition ${style}`}>
@@ -227,6 +229,8 @@ export function TimelineCard({
         {studyCard ? (
           <button
             type="button"
+            aria-expanded={isStudyOpen}
+            aria-controls={studyPanelId}
             onClick={() => setIsStudyOpen((current) => !current)}
             className="inline-flex items-center gap-2 rounded-md border border-cyan-200 px-3 py-2 text-sm font-medium text-cyan-700 hover:bg-cyan-50"
           >
@@ -241,7 +245,12 @@ export function TimelineCard({
       </div>
 
       {studyCard && isStudyOpen ? (
-        <div className="mt-4 animate-[studyReveal_220ms_ease-out] overflow-hidden rounded-lg border border-cyan-100 bg-white">
+        <div
+          id={studyPanelId}
+          role="region"
+          aria-label={`${studyCard.theme}研学闯关`}
+          className="mt-4 animate-[studyReveal_220ms_ease-out] overflow-hidden rounded-lg border border-cyan-100 bg-white"
+        >
           <div className="relative min-h-44 p-4 text-white">
             <Image src={studyCard.imageUrl} alt={studyCard.imageAlt} fill sizes="(max-width: 768px) 100vw, 760px" className="object-cover" />
             <div className={`absolute inset-0 bg-gradient-to-br ${studyCard.accent}`} />
@@ -265,18 +274,76 @@ export function TimelineCard({
           </div>
 
           <div className="space-y-3 p-4">
-            {studyCard.tasks.map((task, index) => (
-              <label key={`${studyCard.id}-${index}`} className="flex items-start gap-2 text-sm text-cyan-950">
-                <input
-                  type="checkbox"
-                  checked={completedStudyTaskIds.includes(`${studyCard.id}-${index}`)}
-                  disabled={readOnly}
-                  onChange={() => onToggleStudyTask?.(`${studyCard.id}-${index}`)}
-                  className="mt-1 h-4 w-4 rounded border-cyan-300 text-cyan-700"
-                />
-                <span>{task.prompt}</span>
-              </label>
-            ))}
+            {studyCard.tasks.map((task) => {
+              const isReferenceOpen = openReferenceTaskIds.includes(task.id);
+              const referenceLabel = task.type === 'quiz' ? '参考答案' : '参考思路';
+              const referenceId = `${event.id}-${task.id}-reference`;
+              const answer = studyAnswers[task.id] ?? '';
+
+              return (
+                <article key={task.id} className="rounded-lg border border-cyan-100 bg-cyan-50/50 p-3">
+                  <label className="flex items-start gap-2 text-sm font-medium text-cyan-950">
+                    <input
+                      type="checkbox"
+                      checked={completedStudyTaskIds.includes(task.id)}
+                      disabled={readOnly}
+                      onChange={() => onToggleStudyTask?.(task.id)}
+                      className="mt-1 h-4 w-4 rounded border-cyan-300 text-cyan-700"
+                    />
+                    <span>{task.prompt}</span>
+                  </label>
+
+                  <div className="mt-3 pl-6">
+                    <p className="text-xs font-medium text-cyan-800">孩子的答案</p>
+                    {readOnly ? (
+                      <p className={`mt-1 whitespace-pre-wrap rounded-md bg-white p-3 text-sm ${answer ? 'text-slate-700' : 'text-slate-400'}`}>
+                        {answer || '还没有作答'}
+                      </p>
+                    ) : (
+                      <>
+                        <textarea
+                          aria-label={`${task.prompt} 的孩子答案`}
+                          rows={task.type === 'reflection' ? 3 : 2}
+                          value={answer}
+                          onChange={(inputEvent) => onStudyAnswerChange?.(task.id, inputEvent.target.value)}
+                          placeholder="写下孩子自己的观察或回答"
+                          className="mt-1 w-full resize-y rounded-md border border-cyan-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                        />
+                        {!answer && completedStudyTaskIds.includes(task.id) ? (
+                          <p className="mt-1 text-xs text-slate-500">已完成，但暂无记录内容</p>
+                        ) : null}
+                      </>
+                    )}
+
+                    <button
+                      type="button"
+                      aria-expanded={isReferenceOpen}
+                      aria-controls={referenceId}
+                      onClick={() =>
+                        setOpenReferenceTaskIds((current) =>
+                          current.includes(task.id) ? current.filter((taskId) => taskId !== task.id) : [...current, task.id],
+                        )
+                      }
+                      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-cyan-700 hover:text-cyan-900"
+                    >
+                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isReferenceOpen ? 'rotate-180' : ''}`} />
+                      {isReferenceOpen ? `收起${referenceLabel}` : `查看${referenceLabel}`}
+                    </button>
+
+                    {isReferenceOpen ? (
+                      <div
+                        id={referenceId}
+                        role="region"
+                        aria-label={`${task.prompt} 的${referenceLabel}`}
+                        className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-950"
+                      >
+                        {task.referenceAnswer}
+                      </div>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })}
 
             <div className="flex flex-wrap gap-2 pt-2">
               {studyCard.links.map((link) => (

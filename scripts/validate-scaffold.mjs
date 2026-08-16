@@ -237,6 +237,21 @@ const requiredSnippets = [
   },
   {
     file: 'components/trip/trip-workspace.tsx',
+    snippet: 'hydratedStudyTripId !== trip.id',
+    message: 'Study persistence must not write progress across trips before hydration',
+  },
+  {
+    file: 'components/trip/timeline-card.tsx',
+    snippet: '已完成，但暂无记录内容',
+    message: 'Completed study tasks without text need an explicit status hint',
+  },
+  {
+    file: 'components/trip/timeline-card.tsx',
+    snippet: 'aria-controls={studyPanelId}',
+    message: 'Study panel disclosure needs accessible state wiring',
+  },
+  {
+    file: 'components/trip/trip-workspace.tsx',
     snippet: '明日预告',
     message: 'Tomorrow preview UI is missing',
   },
@@ -279,6 +294,14 @@ const requiredSnippets = [
 
 const failures = [];
 
+const forbiddenSnippets = [
+  {
+    file: 'components/trip/timeline-card.tsx',
+    snippet: '${studyCard.id}-${index}',
+    message: 'Study tasks must not use array indexes as ids',
+  },
+];
+
 for (const file of requiredFiles) {
   const absPath = path.resolve(process.cwd(), file);
   if (!fs.existsSync(absPath)) {
@@ -295,6 +318,13 @@ for (const { file, snippet, message } of requiredSnippets) {
 
   const content = fs.readFileSync(absPath, 'utf8');
   if (!content.includes(snippet)) {
+    failures.push(`${message} (${file})`);
+  }
+}
+
+for (const { file, snippet, message } of forbiddenSnippets) {
+  const absPath = path.resolve(process.cwd(), file);
+  if (fs.existsSync(absPath) && fs.readFileSync(absPath, 'utf8').includes(snippet)) {
     failures.push(`${message} (${file})`);
   }
 }

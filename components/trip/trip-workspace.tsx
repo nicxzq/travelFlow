@@ -99,7 +99,7 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
   const [deletedEventIds, setDeletedEventIds] = useState<string[]>([]);
   const [completedStudyTaskIds, setCompletedStudyTaskIds] = useState<string[]>([]);
   const [studyAnswers, setStudyAnswers] = useState<Record<string, string>>({});
-  const [hasHydratedStudyProgress, setHasHydratedStudyProgress] = useState(false);
+  const [hydratedStudyTripId, setHydratedStudyTripId] = useState<string | null>(null);
   const context = getTripScheduleContext(trip);
   const sortedDays = useMemo(() => [...trip.days].sort((a, b) => a.dayIndex - b.dayIndex), [trip.days]);
   const daysWithOverrides = useMemo(
@@ -133,7 +133,7 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
 
   useEffect(() => {
     const storageKey = getStudyStorageKey(trip.id);
-    setHasHydratedStudyProgress(false);
+    setHydratedStudyTripId(null);
 
     try {
       const result = parseStudyProgress(window.localStorage.getItem(storageKey));
@@ -144,12 +144,12 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
       setCompletedStudyTaskIds([]);
       setStudyAnswers({});
     } finally {
-      setHasHydratedStudyProgress(true);
+      setHydratedStudyTripId(trip.id);
     }
   }, [trip.id]);
 
   useEffect(() => {
-    if (!hasHydratedStudyProgress) return undefined;
+    if (hydratedStudyTripId !== trip.id) return undefined;
 
     const timer = window.setTimeout(() => {
       try {
@@ -163,7 +163,7 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
     }, 400);
 
     return () => window.clearTimeout(timer);
-  }, [completedStudyTaskIds, hasHydratedStudyProgress, studyAnswers, trip.id]);
+  }, [completedStudyTaskIds, hydratedStudyTripId, studyAnswers, trip.id]);
 
   function toggleTodo(todoId: string) {
     if (readOnly) return;
