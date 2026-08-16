@@ -23,8 +23,10 @@ export type StudyCard = {
     query: string;
   }>;
   tasks: Array<{
+    id: string;
     type: StudyTaskType;
     prompt: string;
+    referenceAnswer: string;
   }>;
 };
 
@@ -58,10 +60,30 @@ const studyCards: StudyCard[] = [
       { label: '黄崖洞保卫战', query: '黄崖洞保卫战 儿童讲解' },
     ],
     tasks: [
-      { type: 'observe', prompt: '找到一处能说明“易守难攻”的地形，并说出原因。' },
-      { type: 'observe', prompt: '记录峡谷里的温度、风、水声或岩壁特点。' },
-      { type: 'quiz', prompt: '为什么兵工厂不建在平原城市？' },
-      { type: 'reflection', prompt: '用 3 句话讲清“地形如何影响历史”。' },
+      {
+        id: 'huangyadong-observe-terrain',
+        type: 'observe',
+        prompt: '找到一处能说明“易守难攻”的地形，并说出原因。',
+        referenceAnswer: '可以观察入口较窄、两侧崖壁陡立或视野较高的位置：窄口不利于大量人员同时进入，陡坡不易攀爬，高处也更方便观察。请以现场实际看到的地形为准。',
+      },
+      {
+        id: 'huangyadong-observe-canyon',
+        type: 'observe',
+        prompt: '记录峡谷里的温度、风、水声或岩壁特点。',
+        referenceAnswer: '可以记录最明显的一项，例如阴凉感、风沿峡谷吹动、水流声，或岩壁上的风化纹路、水渍和青苔。不同天气下的观察可能不同。',
+      },
+      {
+        id: 'huangyadong-quiz-location',
+        type: 'quiz',
+        prompt: '为什么兵工厂不建在平原城市？',
+        referenceAnswer: '平原城市目标明显，较容易被发现和攻击；山区地形复杂，更便于隐蔽、防守和保护人员物资，但运输也会更困难。',
+      },
+      {
+        id: 'huangyadong-reflection-history',
+        type: 'reflection',
+        prompt: '用 3 句话讲清“地形如何影响历史”。',
+        referenceAnswer: '可以这样组织：太行山地形险要，适合隐蔽和防守；人们利用地形建设兵工厂；自然条件因此影响了人员、物资和历史事件的发展。请用自己的话表达。',
+      },
     ],
   },
   {
@@ -85,9 +107,24 @@ const studyCards: StudyCard[] = [
       { label: '太行一号旅游公路', query: '太行一号旅游公路 神龙湾' },
     ],
     tasks: [
-      { type: 'observe', prompt: '观察洞口、弯道和临崖路段，找一个最需要慢行的位置。' },
-      { type: 'quiz', prompt: '为什么挂壁公路常常开在山体侧面，而不是绕远路？' },
-      { type: 'reflection', prompt: '说出这条路给山村生活带来的一个改变。' },
+      {
+        id: 'shenlongwan-road-observe-slow',
+        type: 'observe',
+        prompt: '观察洞口、弯道和临崖路段，找一个最需要慢行的位置。',
+        referenceAnswer: '可以选择视线受遮挡的急弯、洞口或较窄路段，因为这些位置不容易提前看到对面车辆和行人。观察时请始终留在安全位置。',
+      },
+      {
+        id: 'shenlongwan-road-quiz-route',
+        type: 'quiz',
+        prompt: '为什么挂壁公路常常开在山体侧面，而不是绕远路？',
+        referenceAnswer: '在山体侧面开路能够较直接地连接村庄与外界，减少翻山绕行的距离。施工虽然困难，但通车后能明显缩短日常出行时间。',
+      },
+      {
+        id: 'shenlongwan-road-reflection-life',
+        type: 'reflection',
+        prompt: '说出这条路给山村生活带来的一个改变。',
+        referenceAnswer: '可以从上学、看病、运输农产品或与外界往来中选择一点，例如公路让村民出山更快，也让物资进出更方便。',
+      },
     ],
   },
   {
@@ -111,9 +148,24 @@ const studyCards: StudyCard[] = [
       { label: '浅滩安全', query: '儿童 溪流 浅滩 安全 注意事项' },
     ],
     tasks: [
-      { type: 'observe', prompt: '找三块形状不同的石头，观察它们是否被水磨圆。' },
-      { type: 'quiz', prompt: '水流变急时，为什么更容易搬动沙石？' },
-      { type: 'reflection', prompt: '用一句话写下“今天水流告诉我的事”。' },
+      {
+        id: 'shenlongwan-canyon-observe-stones',
+        type: 'observe',
+        prompt: '找三块形状不同的石头，观察它们是否被水磨圆。',
+        referenceAnswer: '可以比较靠近水流和远离水流的石头：经常被水和沙石碰撞的石头，边角往往更圆滑；较少被冲刷的石头可能棱角更明显。',
+      },
+      {
+        id: 'shenlongwan-canyon-quiz-flow',
+        type: 'quiz',
+        prompt: '水流变急时，为什么更容易搬动沙石？',
+        referenceAnswer: '流速加快时，水对沙石的推动和冲击更强，因此能搬动较大、较重的颗粒；缓慢水流通常只能带走较细的泥沙。',
+      },
+      {
+        id: 'shenlongwan-canyon-reflection-water',
+        type: 'reflection',
+        prompt: '用一句话写下“今天水流告诉我的事”。',
+        referenceAnswer: '例如：水流看起来柔软，但长时间冲刷也能磨圆石头、改变河谷。请写下你自己的现场发现。',
+      },
     ],
   },
   {
@@ -137,9 +189,24 @@ const studyCards: StudyCard[] = [
       { label: '声音频率', query: '声音 频率 小学生 科普' },
     ],
     tasks: [
-      { type: 'observe', prompt: '安全坐在车内听旋律，记录车速变化时声音是否变化。' },
-      { type: 'quiz', prompt: '为什么车轮压过不同间距的纹路会产生不同声音？' },
-      { type: 'reflection', prompt: '用“路面、轮胎、振动”三个词解释音乐公路。' },
+      {
+        id: 'taihang-music-road-observe-speed',
+        type: 'observe',
+        prompt: '安全坐在车内听旋律，记录车速变化时声音是否变化。',
+        referenceAnswer: '可以比较车辆较快和较慢时旋律的节奏与音调。通常车速变化会改变轮胎经过纹路的频率，请只在安全乘坐时听和记录。',
+      },
+      {
+        id: 'taihang-music-road-quiz-sound',
+        type: 'quiz',
+        prompt: '为什么车轮压过不同间距的纹路会产生不同声音？',
+        referenceAnswer: '纹路间距不同，轮胎经过时振动的频率就不同；不同频率会形成不同音调，有规律地排列纹路便能组成旋律。',
+      },
+      {
+        id: 'taihang-music-road-reflection-explain',
+        type: 'reflection',
+        prompt: '用“路面、轮胎、振动”三个词解释音乐公路。',
+        referenceAnswer: '例如：路面上有规律的纹路，轮胎压过时产生振动，振动传入车内后就成了我们听到的声音。',
+      },
     ],
   },
   {
@@ -163,9 +230,24 @@ const studyCards: StudyCard[] = [
       { label: '寻根文化', query: '寻根文化 小学生 研学' },
     ],
     tasks: [
-      { type: 'observe', prompt: '找到一处和“寻根”有关的文字或图案。' },
-      { type: 'quiz', prompt: '人们为什么会把一棵树当成共同记忆？' },
-      { type: 'reflection', prompt: '问家人一个关于老家或姓氏来源的问题。' },
+      {
+        id: 'hongdong-observe-roots',
+        type: 'observe',
+        prompt: '找到一处和“寻根”有关的文字或图案。',
+        referenceAnswer: '可以寻找“根”字、移民故事、姓氏或祭祖相关内容，记下它出现的位置和表达的意思。请以景区现场标识为准。',
+      },
+      {
+        id: 'hongdong-quiz-memory',
+        type: 'quiz',
+        prompt: '人们为什么会把一棵树当成共同记忆？',
+        referenceAnswer: '明代许多移民曾在洪洞一带集中办理迁移并从这里出发。后代分散各地后，大槐树逐渐成为共同出发点和故乡记忆的象征。',
+      },
+      {
+        id: 'hongdong-reflection-family',
+        type: 'reflection',
+        prompt: '问家人一个关于老家或姓氏来源的问题。',
+        referenceAnswer: '可以问：“我们家以前住在哪里？”“家里知道姓氏或祖辈迁居的故事吗？”记录家人的真实回答；不知道也可以写下准备继续查找的线索。',
+      },
     ],
   },
   {
@@ -189,9 +271,24 @@ const studyCards: StudyCard[] = [
       { label: '黄河水文', query: '黄河 水文 小学生 科普' },
     ],
     tasks: [
-      { type: 'observe', prompt: '观察瀑布水流颜色、水雾和声音的变化。' },
-      { type: 'quiz', prompt: '河道变窄时，水流速度为什么会变快？' },
-      { type: 'reflection', prompt: '用一个比喻描述你看到的黄河。' },
+      {
+        id: 'hukou-observe-waterfall',
+        type: 'observe',
+        prompt: '观察瀑布水流颜色、水雾和声音的变化。',
+        referenceAnswer: '可以比较远近位置看到的颜色、水雾和听到的声音。黄河水常因泥沙呈黄褐色，靠近主要落差处通常水雾更明显、声音更响，但请以当天水量和安全观景位置为准。',
+      },
+      {
+        id: 'hukou-quiz-narrow',
+        type: 'quiz',
+        prompt: '河道变窄时，水流速度为什么会变快？',
+        referenceAnswer: '同样多的水要通过更窄的河道时，水流会更加集中，通常速度也会加快。壶口河床骤然收窄和落差共同形成了壮观水势。',
+      },
+      {
+        id: 'hukou-reflection-metaphor',
+        type: 'reflection',
+        prompt: '用一个比喻描述你看到的黄河。',
+        referenceAnswer: '例如把奔涌水流比作“万马奔腾”，把水雾比作“一层白纱”。没有标准答案，请选择最符合你现场感受的比喻。',
+      },
     ],
   },
   {
@@ -215,9 +312,24 @@ const studyCards: StudyCard[] = [
       { label: '古村保护', query: '古村落 保护 研学 小学生' },
     ],
     tasks: [
-      { type: 'observe', prompt: '比较洞内外温度、湿度和光线，记录一个明显差别。' },
-      { type: 'quiz', prompt: '为什么有些洞穴夏天也会很冷？' },
-      { type: 'reflection', prompt: '说出自然景观和村落生活之间的一个联系。' },
+      {
+        id: 'yunqiu-observe-cave',
+        type: 'observe',
+        prompt: '比较洞内外温度、湿度和光线，记录一个明显差别。',
+        referenceAnswer: '可以从温度、湿润感或亮度中选一项比较，例如洞内更冷、更暗。不同季节和位置会有差异，请记录实际感受。',
+      },
+      {
+        id: 'yunqiu-quiz-cold-cave',
+        type: 'quiz',
+        prompt: '为什么有些洞穴夏天也会很冷？',
+        referenceAnswer: '洞穴内部较少受到阳光直接加热，岩层传热慢，空气交换方式也与洞外不同，因此有些洞穴能长期保持较低温度。具体冰洞的形成还与洞体结构和当地气候有关。',
+      },
+      {
+        id: 'yunqiu-reflection-village',
+        type: 'reflection',
+        prompt: '说出自然景观和村落生活之间的一个联系。',
+        referenceAnswer: '可以观察村落是否利用当地石材建房、顺着山势布局，或自然条件怎样影响取水、种植和出行。选择现场能找到证据的一点来写。',
+      },
     ],
   },
   {
@@ -241,9 +353,24 @@ const studyCards: StudyCard[] = [
       { label: '古建筑中轴线', query: '中国古建筑 中轴线 小学生' },
     ],
     tasks: [
-      { type: 'observe', prompt: '找一块匾额或一处屋顶装饰，说出它给你的感觉。' },
-      { type: 'quiz', prompt: '为什么庙宇常常按中轴线展开？' },
-      { type: 'reflection', prompt: '用一个词解释你理解的“忠义”。' },
+      {
+        id: 'guandi-observe-decoration',
+        type: 'observe',
+        prompt: '找一块匾额或一处屋顶装饰，说出它给你的感觉。',
+        referenceAnswer: '可以记录匾额文字、飞檐、脊饰或色彩，并写下“庄严、精美、古朴”等真实感受。请以现场实际看到的内容为准。',
+      },
+      {
+        id: 'guandi-quiz-axis',
+        type: 'quiz',
+        prompt: '为什么庙宇常常按中轴线展开？',
+        referenceAnswer: '中轴线布局让主要建筑前后有序、左右相对对称，能够表现庄重和秩序，也方便人们按一定顺序进入和参观。',
+      },
+      {
+        id: 'guandi-reflection-loyalty',
+        type: 'reflection',
+        prompt: '用一个词解释你理解的“忠义”。',
+        referenceAnswer: '可以选择“守信、担当、可靠、重情义”等词，再用一个生活中的小例子说明自己的理解。没有唯一答案。',
+      },
     ],
   },
   {
@@ -267,9 +394,24 @@ const studyCards: StudyCard[] = [
       { label: '盐湖生态', query: '盐湖 藻类 卤虫 科普' },
     ],
     tasks: [
-      { type: 'observe', prompt: '记录你看到的两种盐湖颜色，并观察太阳角度。' },
-      { type: 'quiz', prompt: '为什么盐湖不同区域可能呈现不同颜色？' },
-      { type: 'reflection', prompt: '说出盐湖从生产到旅游保护的一点变化。' },
+      {
+        id: 'salt-lake-observe-colors',
+        type: 'observe',
+        prompt: '记录你看到的两种盐湖颜色，并观察太阳角度。',
+        referenceAnswer: '记录当天实际看到的颜色，再写下太阳较高、接近日落或被云遮挡等光线条件。颜色会随季节、天气和观察角度变化。',
+      },
+      {
+        id: 'salt-lake-quiz-colors',
+        type: 'quiz',
+        prompt: '为什么盐湖不同区域可能呈现不同颜色？',
+        referenceAnswer: '不同区域的盐度、藻类和其他盐水生物数量可能不同，加上光照和水深差异，会让湖水呈现不同颜色。',
+      },
+      {
+        id: 'salt-lake-reflection-protection',
+        type: 'reflection',
+        prompt: '说出盐湖从生产到旅游保护的一点变化。',
+        referenceAnswer: '可以从“过去重视产盐和资源利用，现在同时发展观光并重视生态保护”来思考，再写下你认为保护和利用怎样平衡。',
+      },
     ],
   },
   {
@@ -293,9 +435,24 @@ const studyCards: StudyCard[] = [
       { label: '黄河地理', query: '黄河 中游 地理 小学生' },
     ],
     tasks: [
-      { type: 'observe', prompt: '登楼后找到黄河方向，并描述远近景物。' },
-      { type: 'quiz', prompt: '为什么“登高”常常会让人想到更远的目标？' },
-      { type: 'reflection', prompt: '写一句自己的登楼发现。' },
+      {
+        id: 'guanque-observe-view',
+        type: 'observe',
+        prompt: '登楼后找到黄河方向，并描述远近景物。',
+        referenceAnswer: '可以借助现场标识确认方向，分别写近处和远处看到的景物。能否直接看到黄河会受天气、视野和观景位置影响。',
+      },
+      {
+        id: 'guanque-quiz-climb',
+        type: 'quiz',
+        prompt: '为什么“登高”常常会让人想到更远的目标？',
+        referenceAnswer: '站得更高时视野通常更开阔，人也更容易想到远方和更大的目标。“欲穷千里目，更上一层楼”就把登高与追求更远联系在一起。',
+      },
+      {
+        id: 'guanque-reflection-discovery',
+        type: 'reflection',
+        prompt: '写一句自己的登楼发现。',
+        referenceAnswer: '例如：“站得更高以后，远近景物的层次更清楚了。”请写你当时最真实的发现，不必照抄。',
+      },
     ],
   },
   {
@@ -319,9 +476,24 @@ const studyCards: StudyCard[] = [
       { label: '古代桥梁', query: '古代浮桥 铁牛 原理' },
     ],
     tasks: [
-      { type: 'observe', prompt: '观察铁牛的大小、朝向和固定方式。' },
-      { type: 'quiz', prompt: '为什么古代桥梁需要这么重的铁牛？' },
-      { type: 'reflection', prompt: '说出一个古代工程和现代工程的相同点。' },
+      {
+        id: 'pujindu-observe-iron-oxen',
+        type: 'observe',
+        prompt: '观察铁牛的大小、朝向和固定方式。',
+        referenceAnswer: '可以记录铁牛与人的大小对比、成组排列方式，以及周围铁柱等构件。具体朝向和结构作用请结合现场说明牌判断。',
+      },
+      {
+        id: 'pujindu-quiz-anchor',
+        type: 'quiz',
+        prompt: '为什么古代桥梁需要这么重的铁牛？',
+        referenceAnswer: '这些沉重的铁牛是蒲津浮桥地锚系统的重要组成部分，用来固定连接浮桥的构件，帮助桥梁抵抗黄河水流的冲击。',
+      },
+      {
+        id: 'pujindu-reflection-engineering',
+        type: 'reflection',
+        prompt: '说出一个古代工程和现代工程的相同点。',
+        referenceAnswer: '例如都要选择合适材料、计算受力、保证稳固，并考虑水流和长期使用。可以选一个共同点，用现场构件作证据。',
+      },
     ],
   },
 ];

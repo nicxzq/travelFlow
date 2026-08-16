@@ -28,6 +28,7 @@ const requiredFiles = [
   'components/new-trip/generate-form.tsx',
   'lib/ai/openai-itinerary.ts',
   'lib/mock/shanxi-loop.ts',
+  'lib/mock/study-cards.ts',
   'lib/domain/trip-schedule.ts',
   'components/trip/trip-workspace.tsx',
   'components/trip/trip-library.tsx',
@@ -187,6 +188,16 @@ const requiredSnippets = [
     file: 'lib/mock/shanxi-loop.ts',
     snippet: 'shanxiLoopTrip',
     message: 'Shanxi loop seed trip is missing',
+  },
+  {
+    file: 'lib/mock/study-cards.ts',
+    snippet: 'tasks: Array<{\n    id: string;',
+    message: 'Study tasks need stable ids',
+  },
+  {
+    file: 'lib/mock/study-cards.ts',
+    snippet: 'referenceAnswer: string;',
+    message: 'Study tasks need reference content',
   },
   {
     file: 'lib/mock/shanxi-loop.ts',
