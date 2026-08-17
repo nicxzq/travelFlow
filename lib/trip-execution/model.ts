@@ -20,6 +20,8 @@ export type TripExecutionState = {
 export type TripExecutionParseResult = {
   state: TripExecutionState;
   invalid: boolean;
+  rebased: boolean;
+  discardedChangeCount: number;
 };
 
 type StoredTripExecutionV1 = TripExecutionState & {
@@ -71,7 +73,7 @@ export function getTripExecutionStorageKey(tripId: string) {
 
 export function parseTripExecution(raw: string | null, fallbackTrip: TripWithDaysAndEvents): TripExecutionParseResult {
   const fallback = emptyExecutionState(fallbackTrip);
-  if (!raw) return { state: fallback, invalid: false };
+  if (!raw) return { state: fallback, invalid: false, rebased: false, discardedChangeCount: 0 };
 
   try {
     const parsed = JSON.parse(raw) as unknown;
@@ -82,7 +84,40 @@ export function parseTripExecution(raw: string | null, fallbackTrip: TripWithDay
       !Array.isArray(parsed.changes) ||
       !parsed.changes.every((change) => isTripChange(change, fallbackTrip.id))
     ) {
-      return { state: fallback, invalid: true };
+      return { state: fallback, invalid: true, rebased: false, discardedChangeCount: 0 };
+    }
+
+    if (parsed.initialSnapshot.planRevision !== fallbackTrip.planRevision) {
+      const eventIds = new Set(fallbackTrip.days.flatMap((day) => day.events.map((event) => event.id)));
+      const dayIds = new Set(fallbackTrip.days.map((day) => day.id));
+      const businessChanges = parsed.changes.filter((change) => {
+        if (change.type === 'undo' || !eventIds.has(change.eventId)) return false;
+        if (change.type === 'move') {
+          return typeof change.payload.targetDayId === 'string' && dayIds.has(change.payload.targetDayId);
+        }
+        if (change.type === 'swap') {
+          return typeof change.payload.otherEventId === 'string' && eventIds.has(change.payload.otherEventId);
+        }
+        return true;
+      });
+      const retainedBusinessIds = new Set(businessChanges.map((change) => change.id));
+      const retainedChangeIds = new Set([
+        ...retainedBusinessIds,
+        ...parsed.changes
+          .filter((change) => change.type === 'undo' && change.undoOf && retainedBusinessIds.has(change.undoOf))
+          .map((change) => change.id),
+      ]);
+      const retainedChanges = parsed.changes.filter((change) => retainedChangeIds.has(change.id));
+
+      return {
+        state: {
+          initialSnapshot: cloneTrip(fallbackTrip),
+          changes: retainedChanges.map((change) => ({ ...change, payload: { ...change.payload } })),
+        },
+        invalid: false,
+        rebased: true,
+        discardedChangeCount: parsed.changes.length - retainedChanges.length,
+      };
     }
 
     return {
@@ -91,9 +126,11 @@ export function parseTripExecution(raw: string | null, fallbackTrip: TripWithDay
         changes: parsed.changes.map((change) => ({ ...change, payload: { ...change.payload } })),
       },
       invalid: false,
+      rebased: false,
+      discardedChangeCount: 0,
     };
   } catch {
-    return { state: fallback, invalid: true };
+    return { state: fallback, invalid: true, rebased: false, discardedChangeCount: 0 };
   }
 }
 

@@ -174,6 +174,10 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
       setExecutionStorageHealthy(!result.invalid);
       if (result.invalid) {
         setExecutionWarning('本地行程变更记录已损坏，当前暂用原计划展示；为避免覆盖，已暂停本地保存。');
+      } else if (result.rebased && result.discardedChangeCount > 0) {
+        setExecutionWarning(
+          `基础行程已更新为平遥安排；保留了仍有效的修改，移除了 ${result.discardedChangeCount} 条已失效的旧地点修改。`,
+        );
       }
     } catch {
       setExecutionStorageHealthy(false);

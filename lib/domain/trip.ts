@@ -59,6 +59,7 @@ export interface TripDay {
 export interface TripWithDaysAndEvents {
   id: string;
   userId: string;
+  planRevision?: number;
   title: string;
   destination: string;
   startDate?: string;
