@@ -33,6 +33,7 @@ const requiredFiles = [
   'lib/study/progress.ts',
   'lib/trip-execution/model.ts',
   'lib/trip-execution/reducer.ts',
+  'lib/platform-search.ts',
   'components/trip/event-quick-actions.tsx',
   'components/trip/nearby-decision-card.tsx',
   'components/trip/trip-review-card.tsx',
@@ -334,6 +335,16 @@ const requiredSnippets = [
     file: 'document/Supabase同步设计文档.md',
     snippet: 'share_tokens',
     message: 'Supabase sync design must cover share tokens',
+  },
+  {
+    file: 'components/trip/nearby-decision-card.tsx',
+    snippet: '登录只在官方平台内完成',
+    message: 'Platform credential boundary is missing',
+  },
+  {
+    file: 'components/trip/nearby-decision-card.tsx',
+    snippet: 'buildPlatformLaunch',
+    message: 'Official platform handoff is missing',
   },
 ];
 

@@ -1,9 +1,15 @@
 'use client';
 
-import { Copy, LocateFixed, MapPin, Share2, Sparkles } from 'lucide-react';
+import { Copy, ExternalLink, LocateFixed, MapPin, Share2, Sparkles } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import type { TripEvent, TripWithDaysAndEvents } from '@/lib/domain/trip';
 import type { DestinationMapPoint } from '@/lib/mock/destination-map';
+import {
+  buildPlatformKeyword,
+  buildPlatformLaunch,
+  type SearchPlatform,
+  type SearchScenario,
+} from '@/lib/platform-search';
 import { buildRecommendationPrompt, distanceInKilometers, type GeoPoint } from '@/lib/trip-execution/reducer';
 
 type NearbyDecisionCardProps = {
@@ -12,12 +18,23 @@ type NearbyDecisionCardProps = {
   mapPoints?: DestinationMapPoint[];
 };
 
+const platformChoices: SearchPlatform[] = ['amap', 'meituan', 'dianping', 'ctrip'];
+
+const scenarioLabels: Record<SearchScenario, string> = {
+  attraction: '附近玩半天',
+  food: '找性价比餐厅',
+  hotel: '找家庭住宿',
+};
+
 export function NearbyDecisionCard({ trip, currentEvent, mapPoints = [] }: NearbyDecisionCardProps) {
   const [position, setPosition] = useState<GeoPoint | null>(null);
   const [availableHours, setAvailableHours] = useState(4);
+  const [searchScenario, setSearchScenario] = useState<SearchScenario>('attraction');
   const [locationError, setLocationError] = useState<string | null>(null);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'select'>('idle');
+  const [platformStatus, setPlatformStatus] = useState<string | null>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
+  const platformKeywordRef = useRef<HTMLInputElement>(null);
   const referencePoint = useMemo(() => {
     if (position) return position;
     if (currentEvent?.geo) return currentEvent.geo;
@@ -56,6 +73,11 @@ export function NearbyDecisionCard({ trip, currentEvent, mapPoints = [] }: Nearb
     tripTitle: trip.title,
     coordinates: position ?? undefined,
     remainingEvents: remainingEvents.slice(0, 8).map((event) => event.title),
+  });
+  const platformKeyword = buildPlatformKeyword({
+    scenario: searchScenario,
+    placeName,
+    availableHours,
   });
 
   function requestLocation() {
@@ -101,6 +123,40 @@ export function NearbyDecisionCard({ trip, currentEvent, mapPoints = [] }: Nearb
     } catch {
       // Closing the native share sheet is a valid no-op.
     }
+  }
+
+  function openPlatform(platform: SearchPlatform) {
+    const launch = buildPlatformLaunch({
+      platform,
+      scenario: searchScenario,
+      placeName,
+      availableHours,
+      coordinates: position ?? undefined,
+    });
+
+    window.open(launch.url, '_blank', 'noopener,noreferrer');
+
+    if (!navigator.clipboard?.writeText) {
+      platformKeywordRef.current?.focus();
+      platformKeywordRef.current?.select();
+      setPlatformStatus(`已打开${launch.label}；请长按复制下方关键词后粘贴搜索。`);
+      return;
+    }
+
+    void navigator.clipboard.writeText(launch.keyword).then(
+      () => {
+        setPlatformStatus(
+          launch.directSearch
+            ? `已打开${launch.label}并带入关键词，同时已复制备用。`
+            : `关键词已复制，已打开${launch.label}；请在官方平台内粘贴搜索。`,
+        );
+      },
+      () => {
+        platformKeywordRef.current?.focus();
+        platformKeywordRef.current?.select();
+        setPlatformStatus(`已打开${launch.label}；关键词未自动复制，请长按下方内容复制。`);
+      },
+    );
   }
 
   return (
@@ -175,6 +231,66 @@ export function NearbyDecisionCard({ trip, currentEvent, mapPoints = [] }: Nearb
           </button>
         </div>
         <p className="mt-3 text-xs leading-5 text-slate-500">当前未读取美团、大众点评或携程数据。请外部助手标注来源和更新时间，不要虚构评分或价格。</p>
+      </div>
+
+      <div className="mt-4 rounded-md border border-violet-200 bg-white/90 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900">去官方平台核验</h3>
+            <p className="mt-1 text-xs text-slate-500">TravelFlow 生成关键词；评分、价格和营业状态以官方页面为准。</p>
+          </div>
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            想解决
+            <select
+              value={searchScenario}
+              onChange={(inputEvent) => {
+                setSearchScenario(inputEvent.target.value as SearchScenario);
+                setPlatformStatus(null);
+              }}
+              className="rounded-md border border-violet-200 bg-white px-2 py-1 text-sm"
+            >
+              {Object.entries(scenarioLabels).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <label className="mt-3 block text-xs font-medium text-slate-600">
+          搜索关键词
+          <input
+            ref={platformKeywordRef}
+            readOnly
+            value={platformKeyword}
+            className="mt-1 block w-full rounded-md border border-violet-100 bg-violet-50/60 px-3 py-2 text-sm text-slate-700"
+          />
+        </label>
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {platformChoices.map((platform) => {
+            const launch = buildPlatformLaunch({
+              platform,
+              scenario: searchScenario,
+              placeName,
+              availableHours,
+              coordinates: position ?? undefined,
+            });
+            return (
+              <button
+                key={platform}
+                type="button"
+                onClick={() => openPlatform(platform)}
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-violet-200 bg-white px-3 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100"
+              >
+                <ExternalLink className="h-4 w-4" />
+                {platform === 'amap' ? `打开${launch.label}` : `去${launch.label}搜`}
+              </button>
+            );
+          })}
+        </div>
+
+        {platformStatus ? <p aria-live="polite" className="mt-3 rounded-md bg-violet-50 p-2 text-xs text-violet-900">{platformStatus}</p> : null}
+        <p className="mt-3 text-xs leading-5 text-slate-500">TravelFlow 不接触平台账号、密码或 Cookie；登录只在官方平台内完成。当前未读取平台评分、价格或实时余量。</p>
       </div>
     </section>
   );
