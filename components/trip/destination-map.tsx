@@ -58,7 +58,7 @@ export function DestinationMap({ points, activeDayIndex, selectedPointId, onPoin
         <div className="px-5 pt-5">
           <h2 className="inline-flex items-center gap-2 text-lg font-semibold">
             <MapPin className="h-5 w-5 text-emerald-600" />
-            长治目的地地图
+            山西自驾目的地地图
           </h2>
           <p className="mt-1 text-sm text-slate-600">按行程点位展示机场、景区、住宿和道路节点。</p>
         </div>
@@ -69,7 +69,7 @@ export function DestinationMap({ points, activeDayIndex, selectedPointId, onPoin
         <div className="relative min-h-[420px] overflow-hidden bg-[linear-gradient(135deg,#d7efe8_0%,#edf7f3_34%,#dbeafe_35%,#dbeafe_38%,#f8fafc_39%,#f1f5f9_100%)]">
           <iframe
             title="山西自驾目的地地图背景"
-            src="https://www.openstreetmap.org/export/embed.html?bbox=110.15%2C34.65%2C113.85%2C37.05&layer=mapnik"
+            src="https://www.openstreetmap.org/export/embed.html?bbox=110.15%2C34.65%2C113.85%2C37.30&layer=mapnik"
             className="absolute inset-0 h-full w-full border-0"
             loading="lazy"
           />
@@ -77,7 +77,7 @@ export function DestinationMap({ points, activeDayIndex, selectedPointId, onPoin
           <div className="absolute left-[8%] top-[56%] h-24 w-[82%] rotate-[-13deg] rounded-full border-t-[6px] border-dashed border-emerald-600/45" />
           <div className="absolute left-[23%] top-[23%] h-36 w-[48%] rotate-[18deg] rounded-full border-l-[6px] border-dashed border-sky-600/35" />
           <div className="absolute bottom-4 left-4 rounded-md bg-white/90 px-3 py-2 text-xs text-slate-600 shadow-sm backdrop-blur">
-            长治机场 · 太行山 · 井底村
+            长治 · 平遥 · 临汾 · 运城
           </div>
           {points.map((point) => {
             const isActive = point.dayIndex === activeDayIndex;

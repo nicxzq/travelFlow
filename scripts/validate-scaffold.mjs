@@ -308,8 +308,33 @@ const requiredSnippets = [
   },
   {
     file: 'components/trip/destination-map.tsx',
-    snippet: '长治目的地地图',
+    snippet: '山西自驾目的地地图',
     message: 'Destination map overview is missing',
+  },
+  {
+    file: 'components/trip/destination-map.tsx',
+    snippet: '长治 · 平遥 · 临汾 · 运城',
+    message: 'Destination map route summary is stale',
+  },
+  {
+    file: 'lib/mock/shanxi-loop.ts',
+    snippet: 'planRevision: 2',
+    message: 'Pingyao seed revision is missing',
+  },
+  {
+    file: 'lib/mock/shanxi-loop.ts',
+    snippet: '平遥古城墙',
+    message: 'Pingyao wall itinerary is missing',
+  },
+  {
+    file: 'lib/mock/shanxi-loop.ts',
+    snippet: '日昇昌票号',
+    message: 'Rishengchang itinerary is missing',
+  },
+  {
+    file: 'lib/mock/shanxi-loop.ts',
+    snippet: '自驾前往临汾',
+    message: 'Day 3 Linfen transfer is missing',
   },
   {
     file: 'db/itinerary-management-extension.sql',
@@ -355,6 +380,21 @@ const forbiddenSnippets = [
     file: 'components/trip/timeline-card.tsx',
     snippet: '${studyCard.id}-${index}',
     message: 'Study tasks must not use array indexes as ids',
+  },
+  {
+    file: 'lib/mock/shanxi-loop.ts',
+    snippet: '神龙湾大峡谷浅滩',
+    message: 'Obsolete Day 2 canyon itinerary remains',
+  },
+  {
+    file: 'lib/mock/shanxi-loop.ts',
+    snippet: '太行音乐公路',
+    message: 'Obsolete Day 3 music road itinerary remains',
+  },
+  {
+    file: 'lib/mock/shanxi-loop.ts',
+    snippet: '洪洞大槐树',
+    message: 'Obsolete Day 3 Hongdong itinerary remains',
   },
 ];
 
