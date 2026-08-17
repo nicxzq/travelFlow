@@ -29,6 +29,7 @@ pnpm-debug.log*
 
 # vercel
 .vercel
+.tokenize
 
 # typescript
 *.tsbuildinfo

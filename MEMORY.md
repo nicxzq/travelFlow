@@ -12,6 +12,7 @@
 - [2026-08-15] 分享 token 可供多人重复兑换，撤销后 RLS 立即阻断所有已兑换会话的后续访问；访问凭证存 private schema，客户端不读取 token hash。
 - [2026-08-16] 研学任务使用稳定 task id；逐题记录孩子答案，并提供默认折叠的参考答案/参考思路。当前按 trip 保存到浏览器 localStorage，只读页不可编辑；完成状态与文字答案独立，非空答案可自动完成，但清空答案不会隐式撤销完成。
 - [2026-08-17] 动态行程先采用“不可变初始快照 + append-only 变更日志 + 折叠得到当前行程”；取消、移动、顺延、交换、实际完成与撤销都保留审计记录，后续 changes 可映射到 Supabase。附近推荐无正式平台授权时只做行程内候选与上下文导出，不伪造美团/点评/携程评分。
+- [2026-08-17] 美团、点评、携程和高德的个人消费者账号不由 TravelFlow 代理登录，也不保存密码、Cookie 或 Session；没有正式 OAuth/API 授权时，生成场景关键词并跳转官方 HTTPS/URI，登录只在官方平台内完成。高德当前使用公开 URI 搜索，结构化 POI 待申请开发者 Key 后再接入；Vercel Marketplace 未发现这三个平台的可安装集成。
 
 ## 踩坑 / Gotchas
 
@@ -19,6 +20,7 @@
 
 - [2026-08-16] `service_role` 的 `supabase-js` 仍无法直接查询未暴露给 Data API 的 private schema；service role 只绕过 RLS，不绕过 PostgREST exposed-schema 白名单。需要通过 public schema 中严格收紧 EXECUTE 权限的 `SECURITY DEFINER` RPC 访问 private 凭证表。
 - [2026-08-17] npm 访问官方 registry 报 `UNABLE_TO_GET_ISSUER_CERT_LOCALLY` 时，不要关闭 TLS 校验；本机可用 `NODE_USE_SYSTEM_CA=1 npm ...` 安全复用系统 CA，已验证依赖安装、typecheck 和 Next build 均可正常完成。
+- [2026-08-17] Vercel Marketplace CLI 的发现/登录流程会在项目根生成 `.tokenize/` 会话元数据；必须加入 `.gitignore`，避免把本地集成会话文件提交到仓库。
 
 ## 我的纠正 / 偏好
 
