@@ -207,6 +207,21 @@ const requiredSnippets = [
     message: 'Study tasks need reference content',
   },
   {
+    file: 'lib/mock/study-cards.ts',
+    snippet: 'pingyao-wall-observe-defense',
+    message: 'Pingyao wall challenge is missing',
+  },
+  {
+    file: 'lib/mock/study-cards.ts',
+    snippet: 'pingyao-yamen-observe-inscription',
+    message: 'Pingyao yamen challenge is missing',
+  },
+  {
+    file: 'lib/mock/study-cards.ts',
+    snippet: 'pingyao-finance-observe-draft',
+    message: 'Pingyao finance challenge is missing',
+  },
+  {
     file: 'lib/mock/shanxi-loop.ts',
     snippet: '长沙 → 长治 → 晋东南到晋南自驾环线',
     message: 'Real Shanxi loop itinerary title is missing',
@@ -395,6 +410,26 @@ const forbiddenSnippets = [
     file: 'lib/mock/shanxi-loop.ts',
     snippet: '洪洞大槐树',
     message: 'Obsolete Day 3 Hongdong itinerary remains',
+  },
+  {
+    file: 'lib/mock/study-cards.ts',
+    snippet: "id: 'study-shenlongwan-road'",
+    message: 'Obsolete Shenlongwan road study card remains',
+  },
+  {
+    file: 'lib/mock/study-cards.ts',
+    snippet: "id: 'study-shenlongwan-canyon'",
+    message: 'Obsolete Shenlongwan canyon study card remains',
+  },
+  {
+    file: 'lib/mock/study-cards.ts',
+    snippet: "id: 'study-taihang-music-road'",
+    message: 'Obsolete music road study card remains',
+  },
+  {
+    file: 'lib/mock/study-cards.ts',
+    snippet: "id: 'study-hongdong'",
+    message: 'Obsolete Hongdong study card remains',
   },
 ];
 

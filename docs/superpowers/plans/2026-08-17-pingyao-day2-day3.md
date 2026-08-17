@@ -152,7 +152,7 @@ git commit -m "feat: revise Day 2 and Day 3 for Pingyao"
 **Interfaces:**
 - Day 2 wall card maps to `day-2-event-15`.
 - Day 3 county-office card maps to `day-3-event-12`.
-- Day 3 finance-and-escort card maps to both `day-3-event-15` and `day-3-event-16`.
+- Day 3 finance-and-escort card maps only to `day-3-event-15`; the task text carries the observation forward into the following escort-museum event without rendering a duplicate card.
 
 - [ ] **Step 1: Add failing content assertions**
 
