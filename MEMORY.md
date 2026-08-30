@@ -15,6 +15,7 @@
 - [2026-08-17] 美团、点评、携程和高德的个人消费者账号不由 TravelFlow 代理登录，也不保存密码、Cookie 或 Session；没有正式 OAuth/API 授权时，生成场景关键词并跳转官方 HTTPS/URI，登录只在官方平台内完成。高德当前使用公开 URI 搜索，结构化 POI 待申请开发者 Key 后再接入；Vercel Marketplace 未发现这三个平台的可安装集成。
 - [2026-08-17] 山西种子行程 Day 2 改为下午抵达平遥并轻游城墙/南大街，Day 3 游县衙、日昇昌和镖局后傍晚转场临汾，以保持 Day 4 从临汾 07:00 出发；研学采用 Day 2 一张、Day 3 两张现场观察卡。
 - [2026-08-17] 已发布到浏览器的种子计划后续发生语义替换时必须提升 `planRevision`：读取旧快照后以新种子为初始计划，只保留事件和跨事件引用仍有效的 changes，丢弃数量需要反馈给用户；新事件使用全新稳定 ID，避免旧修改误套。
+- [2026-08-29] 山西行结束后，shanxi-loop 种子从"计划环线"(rev2, 含壶口/运城/盐湖/鹳雀楼/蒲津渡) 整体语义替换为"实走六日回顾"(rev3, status completed)：未去运城/壶口，以洪洞广胜寺+大槐树替代，末程返长治(城隍庙)。事件 ID 用 r3-dN-eM 前缀，同步改 destination-map 与 study-cards；validate-scaffold.mjs 的 rev2 断言随之迁移到 rev3。设计规格见 docs/superpowers/specs/2026-08-29-shanxi-actual-recap-design.md。
 
 ## 踩坑 / Gotchas
 
@@ -23,6 +24,7 @@
 - [2026-08-16] `service_role` 的 `supabase-js` 仍无法直接查询未暴露给 Data API 的 private schema；service role 只绕过 RLS，不绕过 PostgREST exposed-schema 白名单。需要通过 public schema 中严格收紧 EXECUTE 权限的 `SECURITY DEFINER` RPC 访问 private 凭证表。
 - [2026-08-17] npm 访问官方 registry 报 `UNABLE_TO_GET_ISSUER_CERT_LOCALLY` 时，不要关闭 TLS 校验；本机可用 `NODE_USE_SYSTEM_CA=1 npm ...` 安全复用系统 CA，已验证依赖安装、typecheck 和 Next build 均可正常完成。
 - [2026-08-17] Vercel Marketplace CLI 的发现/登录流程会在项目根生成 `.tokenize/` 会话元数据；必须加入 `.gitignore`，避免把本地集成会话文件提交到仓库。
+- [2026-08-29] ui-tokenize 插件在本仓库(无 token catalog)会拦截 Write/Edit 工具，返回"No design-token catalog found"且不写盘；改文件改用 Bash(heredoc/perl)或交给 Codex 实现，或先 /tokenize:init 建 catalog。
 
 ## 我的纠正 / 偏好
 

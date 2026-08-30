@@ -208,23 +208,38 @@ const requiredSnippets = [
   },
   {
     file: 'lib/mock/study-cards.ts',
-    snippet: 'pingyao-wall-observe-defense',
-    message: 'Pingyao wall challenge is missing',
+    snippet: 'pingyao-commerce-observe-street',
+    message: 'Pingyao commerce observation challenge is missing',
   },
   {
     file: 'lib/mock/study-cards.ts',
-    snippet: 'pingyao-yamen-observe-inscription',
-    message: 'Pingyao yamen challenge is missing',
+    snippet: 'pingyao-commerce-quiz-location',
+    message: 'Pingyao commerce location challenge is missing',
   },
   {
     file: 'lib/mock/study-cards.ts',
-    snippet: 'pingyao-finance-observe-draft',
-    message: 'Pingyao finance challenge is missing',
+    snippet: 'pingyao-commerce-reflection-credit',
+    message: 'Pingyao commerce credit challenge is missing',
+  },
+  {
+    file: 'lib/mock/study-cards.ts',
+    snippet: "id: 'study-dahuaishu'",
+    message: 'Dahuaishu study card is missing',
+  },
+  {
+    file: 'lib/mock/study-cards.ts',
+    snippet: "id: 'study-guangsheng'",
+    message: 'Guangsheng Temple study card is missing',
+  },
+  {
+    file: 'lib/mock/study-cards.ts',
+    snippet: "id: 'study-chenghuangmiao'",
+    message: 'Changzhi Chenghuang Temple study card is missing',
   },
   {
     file: 'lib/mock/shanxi-loop.ts',
-    snippet: '长沙 → 长治 → 晋东南到晋南自驾环线',
-    message: 'Real Shanxi loop itinerary title is missing',
+    snippet: '长沙 → 长治 · 晋东南到晋中晋南 六日回顾（实走）',
+    message: 'Actual Shanxi trip recap title is missing',
   },
   {
     file: 'lib/domain/trip.ts',
@@ -328,28 +343,28 @@ const requiredSnippets = [
   },
   {
     file: 'components/trip/destination-map.tsx',
-    snippet: '长治 · 平遥 · 临汾 · 运城',
-    message: 'Destination map route summary is stale',
+    snippet: '长治黄崖洞 · 平遥 · 洪洞 · 云丘山',
+    message: 'Actual destination map route summary is missing',
   },
   {
     file: 'lib/mock/shanxi-loop.ts',
-    snippet: 'planRevision: 2',
-    message: 'Pingyao seed revision is missing',
+    snippet: 'planRevision: 3',
+    message: 'Actual Shanxi trip seed revision is missing',
   },
   {
     file: 'lib/mock/shanxi-loop.ts',
-    snippet: '平遥古城墙',
-    message: 'Pingyao wall itinerary is missing',
+    snippet: '平遥古城街区漫游',
+    message: 'Actual Pingyao street itinerary is missing',
   },
   {
     file: 'lib/mock/shanxi-loop.ts',
-    snippet: '日昇昌票号',
-    message: 'Rishengchang itinerary is missing',
+    snippet: '广胜寺深度参观',
+    message: 'Guangsheng Temple itinerary is missing',
   },
   {
     file: 'lib/mock/shanxi-loop.ts',
-    snippet: '自驾前往临汾',
-    message: 'Day 3 Linfen transfer is missing',
+    snippet: '长治城隍庙',
+    message: 'Changzhi Chenghuang Temple itinerary is missing',
   },
   {
     file: 'db/itinerary-management-extension.sql',
@@ -405,11 +420,6 @@ const forbiddenSnippets = [
     file: 'lib/mock/shanxi-loop.ts',
     snippet: '太行音乐公路',
     message: 'Obsolete Day 3 music road itinerary remains',
-  },
-  {
-    file: 'lib/mock/shanxi-loop.ts',
-    snippet: '洪洞大槐树',
-    message: 'Obsolete Day 3 Hongdong itinerary remains',
   },
   {
     file: 'lib/mock/study-cards.ts',

@@ -77,7 +77,7 @@ export function DestinationMap({ points, activeDayIndex, selectedPointId, onPoin
           <div className="absolute left-[8%] top-[56%] h-24 w-[82%] rotate-[-13deg] rounded-full border-t-[6px] border-dashed border-emerald-600/45" />
           <div className="absolute left-[23%] top-[23%] h-36 w-[48%] rotate-[18deg] rounded-full border-l-[6px] border-dashed border-sky-600/35" />
           <div className="absolute bottom-4 left-4 rounded-md bg-white/90 px-3 py-2 text-xs text-slate-600 shadow-sm backdrop-blur">
-            长治 · 平遥 · 临汾 · 运城
+            长治黄崖洞 · 平遥 · 洪洞 · 云丘山
           </div>
           {points.map((point) => {
             const isActive = point.dayIndex === activeDayIndex;
