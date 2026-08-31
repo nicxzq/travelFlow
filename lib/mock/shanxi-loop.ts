@@ -1,6 +1,34 @@
-import type { TripEvent, TripTodo, TripWithDaysAndEvents } from '@/lib/domain/trip';
+import type { TransportMode, TripEvent, TripTodo, TripWithDaysAndEvents } from '@/lib/domain/trip';
 
 const tripId = 'shanxi-loop-2026';
+
+const places: Record<string, { lat: number; lng: number }> = {
+  长沙黄花国际机场T2: { lat: 28.1892, lng: 113.2196 },
+  长治王村机场: { lat: 36.247, lng: 113.126 },
+  长治王村机场租车点: { lat: 36.247, lng: 113.126 },
+  长治市区: { lat: 36.195, lng: 113.116 },
+  黄崖洞景区: { lat: 36.879, lng: 113.387 },
+  黄崖洞培训中心泊龙山庄: { lat: 36.876, lng: 113.385 },
+  黄崖洞镇: { lat: 36.87, lng: 113.39 },
+  花壶线: { lat: 36.363, lng: 113.575 },
+  神龙湾挂壁公路: { lat: 36.158, lng: 113.676 },
+  神龙湾大峡谷: { lat: 36.151, lng: 113.67 },
+  井底村: { lat: 36.148, lng: 113.662 },
+  太行音乐公路: { lat: 36.223, lng: 113.49 },
+  洪洞大槐树寻根祭祖园: { lat: 36.2678, lng: 111.6765 },
+  洪洞大槐树民俗饭店: { lat: 36.266, lng: 111.678 },
+  临汾: { lat: 36.088, lng: 111.519 },
+  山西黄河壶口瀑布旅游区: { lat: 36.137, lng: 110.442 },
+  壶口瀑布景区: { lat: 36.137, lng: 110.442 },
+  云丘山景区: { lat: 35.728, lng: 111.02 },
+  云丘山康家坪民宿: { lat: 35.7654, lng: 111.0243 },
+  运城市盐湖区: { lat: 35.026, lng: 111.007 },
+  解州关帝庙: { lat: 34.909, lng: 110.867 },
+  运城七彩盐湖: { lat: 35.006, lng: 110.897 },
+  运城七彩盐湖听涛阁酒店: { lat: 35.008, lng: 110.9 },
+  鹳雀楼: { lat: 34.837, lng: 110.306 },
+  蒲津渡遗址: { lat: 34.842, lng: 110.297 },
+};
 
 function nav(keyword: string) {
   return `https://uri.amap.com/search?keyword=${encodeURIComponent(keyword)}`;
@@ -15,6 +43,7 @@ function event(
   category: TripEvent['category'],
   description: string,
   locationName: string,
+  transportMode?: TransportMode,
 ): TripEvent {
   return {
     id: `${dayId}-event-${index}`,
@@ -26,8 +55,10 @@ function event(
     category,
     description,
     locationName,
+    geo: places[locationName],
     navigationUrl: nav(locationName),
     status: 'planned',
+    transportMode,
   };
 }
 
@@ -132,7 +163,7 @@ export const shanxiLoopTrip: TripWithDaysAndEvents = {
       summary: '长沙飞长治，取车后前往黄崖洞，下午游览峡谷和兵工厂遗址。',
       events: [
         event('day-1', 1, '07:30', '09:00', '长沙黄花机场值机', 'transport', '抵达 T2，办理值机并确认儿童证件。', '长沙黄花国际机场T2'),
-        event('day-1', 2, '09:40', '11:35', 'LT5627 长沙飞长治', 'transport', '龙江航空去程航班，抵达长治王村机场 T1。', '长治王村机场'),
+        event('day-1', 2, '09:40', '11:35', 'LT5627 长沙飞长治', 'transport', '龙江航空去程航班，抵达长治王村机场 T1。', '长治王村机场', 'flight'),
         event('day-1', 3, '12:05', '12:30', '机场取租车', 'transport', '取车并检查车况、油量、儿童用品和保险。', '长治王村机场租车点'),
         event('day-1', 4, '13:30', '14:00', '自驾前往黄崖洞', 'transport', '约 70km，预计 1.5h，途中视孩子状态短暂停靠。', '黄崖洞景区'),
         event('day-1', 5, '14:00', '18:00', '黄崖洞景区', 'spot', '瓮圪廊丹霞峡谷、八路军兵工厂遗址、观光车、缆车和挂壁电梯。', '黄崖洞景区'),
@@ -212,7 +243,7 @@ export const shanxiLoopTrip: TripWithDaysAndEvents = {
         event('day-6', 4, '10:45', '11:30', '蒲津渡遗址', 'spot', '顺路看黄河大铁牛，控制停留时间。', '蒲津渡遗址'),
         event('day-6', 5, '11:30', '14:30', '返程长治机场', 'transport', '约 240km，预计 3h，遇拥堵及时放弃市区加餐。', '长治王村机场'),
         event('day-6', 6, '14:30', '18:00', '还车候机', 'transport', '加满油、检查车况、预留 30 分钟还车手续。', '长治王村机场'),
-        event('day-6', 7, '18:00', '19:55', 'LT5628 长治飞长沙', 'transport', '抵达长沙黄花 T2 后返家。', '长沙黄花国际机场T2'),
+        event('day-6', 7, '18:00', '19:55', 'LT5628 长治飞长沙', 'transport', '抵达长沙黄花 T2 后返家。', '长沙黄花国际机场T2', 'flight'),
       ],
     },
   ],

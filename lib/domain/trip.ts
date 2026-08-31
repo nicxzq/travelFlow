@@ -1,4 +1,5 @@
 export type EventCategory = 'spot' | 'food' | 'hotel' | 'transport' | 'custom';
+export type TransportMode = 'drive' | 'flight' | 'walk';
 export type EventStatus = 'planned' | 'active' | 'done' | 'skipped' | 'changed';
 export type TodoScope = 'trip' | 'day' | 'event';
 export type TodoStatus = 'open' | 'done' | 'blocked';
@@ -30,6 +31,7 @@ export interface TripEvent {
   navigationUrl?: string;
   isCompleted?: boolean;
   status?: EventStatus;
+  transportMode?: TransportMode;
 }
 
 export interface TripTodo {

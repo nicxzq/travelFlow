@@ -2,6 +2,7 @@
 
 import type { TripInput, TripWithDaysAndEvents } from '@/lib/domain/trip';
 import { mockTrip } from '@/lib/mock/trip';
+import { shanxiActualTrip } from '@/lib/mock/shanxi-actual';
 import { shanxiLoopTrip } from '@/lib/mock/shanxi-loop';
 
 /**
@@ -22,6 +23,10 @@ export async function createTrip(data: TripInput): Promise<{ id: string }> {
  * PRD/SDD 对齐：getTripDetails(id: string): Promise<TripWithDaysAndEvents>
  */
 export async function getTripDetails(id: string): Promise<TripWithDaysAndEvents> {
+  if (id === shanxiActualTrip.id) {
+    return shanxiActualTrip;
+  }
+
   if (id === shanxiLoopTrip.id) {
     return shanxiLoopTrip;
   }

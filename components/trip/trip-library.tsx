@@ -73,6 +73,37 @@ export function TripLibrary() {
         </div>
       </section>
 
+      <section className="rounded-lg border border-amber-200 bg-amber-50 p-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="inline-flex items-center gap-2 text-sm font-medium text-amber-800">
+              <FolderClock className="h-4 w-4" />
+              已归档 · 成行轨迹
+            </p>
+            <h2 className="mt-2 text-xl font-semibold">2026 山西六日自驾 · 成行轨迹</h2>
+            <p className="mt-2 text-sm text-amber-900">
+              2026-08-16 至 2026-08-21 · 实际走过的 17 站 · 支持动态轨迹回放与景点照片
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/trip/shanxi-actual-2026"
+              className="inline-flex items-center gap-2 rounded-md bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700"
+            >
+              <ExternalLink className="h-4 w-4" />
+              打开轨迹
+            </Link>
+            <Link
+              href="/trip/shanxi-actual-2026/share"
+              className="inline-flex items-center gap-2 rounded-md border border-amber-300 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
+            >
+              <Share2 className="h-4 w-4" />
+              同行分享
+            </Link>
+          </div>
+        </div>
+      </section>
+
       <section className="rounded-lg border border-slate-200 bg-white p-5">
         <h2 className="text-lg font-semibold">本地保存记录</h2>
         <p className="mt-1 text-sm text-slate-600">这些记录保存在当前浏览器里，登录同步会在后续版本接入。</p>

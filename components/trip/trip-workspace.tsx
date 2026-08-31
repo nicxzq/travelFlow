@@ -8,7 +8,8 @@ import type { TripDay, TripEvent, TripWithDaysAndEvents } from '@/lib/domain/tri
 import { DestinationMap } from '@/components/trip/destination-map';
 import { NextActionCard } from '@/components/trip/next-action-card';
 import { TimelineCard } from '@/components/trip/timeline-card';
-import { getDestinationMapPoints, type DestinationMapPoint } from '@/lib/mock/destination-map';
+import type { JourneyStop } from '@/lib/domain/journey';
+import { getJourneyOverlaySeed } from '@/lib/mock/journey-seed';
 import { getStudyCardForEvent, type StudyCard } from '@/lib/mock/study-cards';
 
 type TripWorkspaceProps = {
@@ -93,7 +94,7 @@ function getNextActionTitle(day: TripDay, phase: string) {
 export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
   const [doneTodoIds, setDoneTodoIds] = useState<string[]>([]);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
-  const [selectedPointId, setSelectedPointId] = useState<string | undefined>();
+  const [selectedEventId, setSelectedEventId] = useState<string | undefined>();
   const [eventOverrides, setEventOverrides] = useState<Record<string, Partial<TripEvent>>>({});
   const [deletedEventIds, setDeletedEventIds] = useState<string[]>([]);
   const [completedStudyTaskIds, setCompletedStudyTaskIds] = useState<string[]>([]);
@@ -116,7 +117,8 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
   const visibleDay = daysWithOverrides.find((day) => day.id === sourceVisibleDay.id) ?? sourceVisibleDay;
   const tomorrow = context.tomorrow ? daysWithOverrides.find((day) => day.id === context.tomorrow?.id) : undefined;
   const nextEvent = getDisplayNextEvent(visibleDay, context.phase);
-  const mapPoints = getDestinationMapPoints(trip.destination).filter((point) => !point.eventId || !deletedEventIds.includes(point.eventId));
+  const mapTrip = useMemo(() => ({ ...trip, days: daysWithOverrides }), [daysWithOverrides, trip]);
+  const overlaySeed = useMemo(() => getJourneyOverlaySeed(trip.id), [trip.id]);
   const activeTodos = (trip.todos ?? [])
     .filter((todo) => !doneTodoIds.includes(todo.id) && todo.status !== 'done')
     .sort((a, b) => a.sortOrder - b.sortOrder);
@@ -147,12 +149,11 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
     setDeletedEventIds((current) => (current.includes(eventId) ? current : [...current, eventId]));
   }
 
-  function selectMapPoint(point: DestinationMapPoint) {
-    setSelectedPointId(point.id);
-    const day = daysWithOverrides.find((item) => item.dayIndex === point.dayIndex);
-    if (day) setSelectedDayId(day.id);
+  function selectJourneyStop(stop: JourneyStop) {
+    setSelectedEventId(stop.eventId);
+    setSelectedDayId(stop.dayId);
     window.requestAnimationFrame(() => {
-      document.getElementById(`day-${point.dayIndex}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.getElementById(`day-${stop.dayIndex}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }
 
@@ -272,10 +273,12 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
       </section>
 
       <DestinationMap
-        points={mapPoints}
+        trip={mapTrip}
+        overlaySeed={overlaySeed}
         activeDayIndex={visibleDay.dayIndex}
-        selectedPointId={selectedPointId}
-        onPointSelect={selectMapPoint}
+        selectedEventId={selectedEventId}
+        readOnly={readOnly}
+        onStopSelect={selectJourneyStop}
       />
 
       {context.phase === 'pretrip' ? null : (
