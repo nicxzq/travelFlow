@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>2026 山西六日 · 免 Key 动态旅行轨迹 · v4 v3</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <style>
+    :root{
+      --panel: rgba(255,255,255,.94);
+      --ink:#17212b;
+      --muted:#6b7280;
+      --line:#e5e7eb;
+      --brand:#16a34a;
+      --brand2:#0f766e;
+      --shadow:0 14px 40px rgba(15,23,42,.16);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter,"PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;color:var(--ink);background:#eef2f5}
+    button,input,textarea,select{font:inherit}
+    button{cursor:pointer}
+    #app{height:100%;position:relative;overflow:hidden;isolation:isolate}
+    #map{z-index:0!important}
+    #uiLayer{position:absolute;inset:0;z-index:2000;pointer-events:none}
+    #uiLayer .topbar,#uiLayer .days,#uiLayer .story-card,#uiLayer .player,#uiLayer .note-card,#uiLayer .toast{pointer-events:auto}
+    .leaflet-container{z-index:0!important}
+    #map{position:absolute;inset:0;z-index:0;background:linear-gradient(135deg,#d9e7dc,#c9d7df)}
+    .topbar{position:absolute;z-index:50;top:18px;left:18px;right:18px;display:flex;align-items:center;gap:10px;pointer-events:none}
+    .brand{pointer-events:auto;background:var(--panel);box-shadow:var(--shadow);border:1px solid rgba(255,255,255,.65);border-radius:16px;padding:11px 14px;display:flex;gap:10px;align-items:center;min-width:260px}
+    .brand .dot{width:12px;height:12px;border-radius:999px;background:var(--brand);box-shadow:0 0 0 5px rgba(22,163,74,.12)}
+    .brand h1{font-size:16px;margin:0;font-weight:800;letter-spacing:.2px}
+    .brand p{font-size:11px;margin:2px 0 0;color:var(--muted)}
+    .top-actions{margin-left:auto;display:flex;gap:8px;pointer-events:auto;flex-wrap:wrap;justify-content:flex-end}
+    .btn{border:1px solid rgba(15,23,42,.08);background:var(--panel);color:var(--ink);padding:9px 12px;border-radius:12px;box-shadow:0 7px 24px rgba(15,23,42,.12);font-weight:700;font-size:13px;color:#fff;border-color:transparent}
+    .btn.ghost{box-shadow:none;background:#fff;border-color:var(--line)}
+    .btn.danger{color:#b91c1c}
+
+    .days{position:absolute;z-index:40;left:18px;top:96px;width:310px;max-height:calc(100% - 210px);overflow:auto;background:var(--panel);box-shadow:var(--shadow);border-radius:var(--radius);padding:10px;border:1px solid rgba(255,255,255,.68)}
+    .day{padding:11px 12px;border-radius:13px;margin-bottom:5px;border:1px solid transparent;display:grid;grid-template-columns:38px 1fr;gap:10px;align-items:center;transition:.18s;cursor:pointer}
+    .day:hover{background:#f7faf8}
+    .day.active{background:#ecfdf3;border-color:#b7edc6}
+    .day .num{width:34px;height:34px;border-radius:11px;background:#eef2f7;display:grid;place-items:center;font-size:12px;font-weight:900;color:#475569}
+    .day.active .num{background:var(--brand);color:#fff}
+    .day .date{font-size:11px;color:var(--muted);font-weight:700}
+    .day .title{font-size:13px;font-weight:800;margin-top:2px;line-height:1.25}
+    .day .meta{font-size:11px;color:#64748b;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+    .story-card{position:absolute;z-index:40;right:18px;top:96px;width:min(390px,calc(100vw - 36px));max-height:calc(100% - 210px);overflow:auto;background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid rgba(255,255,255,.7);}
+    .photo{height:210px;position:relative;background:linear-gradient(135deg,#173d31,#589d6d);overflow:hidden;border-radius:18px 18px 0 0}
+    .photo img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transform:scale(1.025);transition:opacity .72s ease,transform .9s ease}
+    .photo img.reveal{opacity:1;transform:scale(1)}
+    .photo .placeholder{opacity:1;transition:opacity .55s ease}
+    .photo .placeholder.fade{opacity:0}
+    .story-card{transition:opacity .35s ease,transform .35s ease}
+    .story-card.traveling{opacity:0;transform:translateY(8px);pointer-events:none}
+    .story-card.arrival{animation:storyArrival .48s ease both}
+    @keyframes storyArrival{from{opacity:.35;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    .trip-car{width:46px;height:46px;border-radius:50%;background:#fff;border:3px solid #0f172a;display:grid;place-items:center;font-size:23px;line-height:1;box-shadow:0 8px 24px rgba(15,23,42,.35);position:relative}
+    .trip-car:after{content:"";position:absolute;inset:-7px;border:2px solid rgba(22,163,74,.35);border-radius:50%;animation:carPulse 1.6s ease-out infinite}
+    .trip-car.arrived:after{border-color:rgba(22,163,74,.65);animation:arrivePulse .75s ease-out 1}
+    @keyframes carPulse{0%{transform:scale(.78);opacity:.9}100%{transform:scale(1.28);opacity:0}}
+    @keyframes arrivePulse{0%{transform:scale(.7);opacity:1}100%{transform:scale(1.55);opacity:0}}
+    @media (prefers-reduced-motion:reduce){.photo img,.story-card{transition:none!important;animation:none!important}.trip-car:after{animation:none!important}}
+    .photo .placeholder{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#fff;padding:24px;background:radial-gradient(circle at 30% 20%,rgba(255,255,255,.25),transparent 35%),linear-gradient(135deg,#0f766e,#166534)}
+    .photo .placeholder b{font-size:23px;display:block;margin-top:7px}
+    .photo .badge{position:absolute;left:14px;top:14px;padding:6px 9px;border-radius:999px;background:rgba(15,23,42,.76);color:#fff;font-size:11px;font-weight:800;}
+    .story-body{padding:16px 17px 17px}
+    .story-body .kicker{font-size:11px;color:var(--brand2);font-weight:900;letter-spacing:.5px}
+    .story-body h2{font-size:20px;margin:4px 0 7px;line-height:1.3}
+    .story-body .time{font-size:12px;color:var(--muted);margin-bottom:10px}
+    .story-body p{font-size:13px;line-height:1.75;margin:0;color:#334155;white-space:pre-wrap}
+    .story-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+    .story-tags span{font-size:11px;padding:5px 8px;border-radius:999px;background:#f0fdf4;color:#166534;border:1px solid #dcfce7}
+    .card-nav{display:flex;gap:8px;margin-top:14px}
+    .card-nav .btn{flex:1;box-shadow:none}
+
+    .player{position:absolute;z-index:60;left:50%;bottom:20px;transform:translateX(-50%);width:min(760px,calc(100vw - 36px));background:rgba(15,23,42,.90);color:#fff;border-radius:18px;padding:11px 13px;box-shadow:var(--shadow);}
+    .player-row{display:flex;align-items:center;gap:10px}
+    .play{border:0;width:42px;height:42px;border-radius:13px;background:#22c55e;color:#fff;font-size:18px;font-weight:900}
+    .progress-wrap{flex:1}
+    .progress-top{display:flex;justify-content:space-between;font-size:11px;color:#cbd5e1;margin-bottom:5px;gap:10px}
+    .progress-top span:last-child{text-align:right}
+    input[type=range]{width:100%;accent-color:#22c55e}
+    .speed{background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:10px;padding:7px 8px;font-size:12px}
+
+    .note-card{position:absolute;z-index:30;left:50%;top:70px;transform:translateX(-50%);width:min(640px,calc(100vw - 40px));background:rgba(255,255,255,.94);border:1px solid rgba(255,255,255,.75);border-radius:16px;box-shadow:var(--shadow);padding:10px 14px;font-size:12px;color:#475569;line-height:1.6;}
+    .note-card b{color:#0f172a}
+
+    dialog{border:0;border-radius:20px;padding:0;width:min(880px,calc(100vw - 28px));max-height:88vh;box-shadow:0 24px 80px rgba(0,0,0,.3)}
+    dialog::backdrop{background:rgba(15,23,42,.48);}
+    .modal-head{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:#fff;z-index:3}
+    .modal-head h3{margin:0;font-size:17px}
+    .modal-head .close{margin-left:auto;border:0;background:#f1f5f9;border-radius:10px;width:34px;height:34px}
+    .modal-body{padding:18px;background:#fafafa}
+    .tabs{display:flex;gap:6px;margin-bottom:14px}
+    .tab{border:1px solid var(--line);background:#fff;padding:8px 11px;border-radius:10px;font-weight:800;font-size:12px}
+    .tab.active{background:#0f172a;color:#fff;border-color:#0f172a}
+    .pane{display:none}.pane.active{display:block}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .field{display:flex;flex-direction:column;gap:5px}
+    .field.full{grid-column:1/-1}
+    label{font-size:11px;font-weight:800;color:#475569}
+    input,textarea,select{border:1px solid #d8dee7;border-radius:10px;padding:9px 10px;background:#fff;color:#0f172a;outline:none}
+    textarea{min-height:82px;resize:vertical;line-height:1.5}
+    input:focus,textarea:focus{border-color:#86efac;box-shadow:0 0 0 3px rgba(34,197,94,.12)}
+    .hint{font-size:11px;color:#64748b;line-height:1.55}
+    .stop-editor{border:1px solid var(--line);border-radius:14px;background:#fff;margin-bottom:10px;overflow:hidden}
+    .stop-editor summary{cursor:pointer;padding:11px 12px;font-weight:900;font-size:13px;background:#fff;display:flex;align-items:center;gap:7px}
+    .stop-inner{padding:12px;border-top:1px solid var(--line)}
+    .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+    .notice{padding:11px 12px;border-radius:12px;background:#eff6ff;border:1px solid #dbeafe;color:#1e40af;font-size:12px;line-height:1.6;margin-bottom:12px}
+    .toast{position:absolute;z-index:80;left:50%;top:18px;transform:translateX(-50%) translateY(-80px);background:#111827;color:white;border-radius:12px;padding:9px 13px;font-size:12px;box-shadow:var(--shadow);transition:.25s;opacity:0}
+    .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+    .route-label{background:#fff;border:2px solid #16a34a;color:#166534;border-radius:999px;padding:2px 7px;font-size:11px;font-weight:800;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+
+    @media (max-width: 980px){ .days{width:270px}.story-card{width:340px} }
+    @media (max-width: 760px){
+      .topbar{top:10px;left:10px;right:10px}.brand{min-width:0;flex:1}.brand p{display:none}
+      .top-actions .btn span{display:none}
+      .note-card{top:62px;padding:8px 12px;font-size:11px}
+      .days{top:auto;bottom:92px;left:10px;right:10px;width:auto;max-height:none;display:flex;overflow-x:auto;padding:8px}
+      .day{min-width:190px;margin:0 6px 0 0;grid-template-columns:32px 1fr;padding:9px}.day .num{width:30px;height:30px}
+      .story-card{top:98px;left:10px;right:10px;width:auto;max-height:44vh}
+      .photo{height:145px}.story-body h2{font-size:18px}
+      .player{bottom:12px;width:calc(100vw - 20px);padding:9px}.speed{display:none}
+      .grid{grid-template-columns:1fr}.field.full{grid-column:auto}
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="map"></div>
+  <div id="uiLayer">
+  <div class="toast" id="toast"></div>
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="dot"></div>
+      <div><h1 id="tripTitle">2026 山西六日 · 动态旅行轨迹</h1><p id="tripSub">8月16日—8月21日 · 长治—黄崖洞—平遥—洪洞—云丘山</p></div>
+    </div>
+    <div class="top-actions">
+      <button class="btn" id="overviewBtn">🧭 <span>全程总览</span></button>
+      <button class="btn" id="layerBtn">🛰️ <span>卫星图</span></button>
+      <button class="btn" id="editBtn">⚙️ <span>网页维护</span></button>
+    </div>
+  </div>
+
+  <div class="note-card" id="noteCard"><b>v4 整体轨迹模式：</b>地图首次只定位一次到六天完整行程，此后播放过程中不追车、不自动缩放。全程路线始终保留为淡色虚线；已经走过的路持续叠加为绿色实线，跨天也不会消失。小车到站时只弹出景点照片与故事卡。</div>
+
+  <div class="days" id="daysPanel"></div>
+
+  <section class="story-card" id="storyCard" hidden>
+    <div class="photo">
+      <img id="stopImage" alt="景点图片" hidden />
+      <div class="placeholder" id="photoPlaceholder"><div>📍<b id="placeholderName">旅行地点</b><small style="display:block;margin-top:8px;opacity:.8">网页维护 → 可上传这站照片</small></div></div>
+      <div class="badge" id="photoBadge">DAY 1 · 01</div>
+    </div>
+    <div class="story-body">
+      <div class="kicker" id="storyKicker">2026.08.16 · 山西</div>
+      <h2 id="stopName">长治王村机场</h2>
+      <div class="time" id="stopTime">13:30 · 到达</div>
+      <p id="stopStory"></p>
+      <div class="story-tags" id="storyTags"></div>
+      <div class="card-nav">
+        <button class="btn ghost" id="prevStop">← 上一站</button>
+        <button class="btn primary" id="nextStop">下一站 →</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="player" id="player">
+    <div class="player-row">
+      <button class="play" id="playBtn" aria-label="播放">▶</button>
+      <div class="progress-wrap">
+        <div class="progress-top"><span id="progressLabel">第1天 · 1/2</span><span id="distanceLabel">公路路线准备中</span></div>
+        <input type="range" id="progress" min="0" max="1000" value="0" />
+      </div>
+      <select class="speed" id="speed"><option value="0.65">0.65×</option><option value="1" selected>1×</option><option value="1.8">1.8×</option><option value="3">3×</option></select>
+    </div>
+  </div>
+  </div>
+</div>
+
+<dialog id="editor">
+  <div class="modal-head"><h3>网页端维护</h3><button class="close" id="closeEditor">✕</button></div>
+  <div class="modal-body">
+    <div class="tabs">
+      <button class="tab active" data-tab="dataPane">行程内容</button>
+      <button class="tab" data-tab="ioPane">导入 / 导出</button>
+    </div>
+
+    <div class="pane active" id="dataPane">
+      <div class="notice">可直接改日期、标题、景点、经纬度、故事和图片。图片支持 URL，也支持本机上传；上传后会压缩并保存在当前浏览器。若要多人共用同一份数据，需要后端（如 Supabase、你现有网站后台等）。</div>
+      <div class="grid" style="margin-bottom:12px">
+        <div class="field"><label>旅行标题</label><input id="editTripTitle" /></div>
+        <div class="field"><label>副标题</label><input id="editTripSub" /></div>
+        <div class="field full"><label>选择要维护的天</label><select id="editDaySelect"></select></div>
+        <div class="field"><label>日期</label><input id="editDayDate" /></div>
+        <div class="field"><label>当天标题</label><input id="editDayTitle" /></div>
+        <div class="field full"><label>当天摘要</label><textarea id="editDaySummary"></textarea></div>
+      </div>
+      <div id="stopsEditor"></div>
+      <button class="btn ghost" id="addStop">＋ 添加一站</button>
+      <div class="modal-actions"><button class="btn primary" id="saveData">保存并刷新</button></div>
+    </div>
+
+    <div class="pane" id="ioPane">
+      <div class="notice">导出的 JSON 会包含当前行程数据以及已经内嵌的小图，适合备份、迁移，或交给别人继续维护。</div>
+      <div class="modal-actions" style="justify-content:flex-start">
+        <button class="btn ghost" id="exportBtn">导出 JSON</button>
+        <label class="btn ghost" style="display:inline-block">导入 JSON<input type="file" id="importInput" accept="application/json" hidden /></label>
+        <button class="btn danger ghost" id="resetBtn">恢复最初示例</button>
+      </div>
+      <p class="hint">提示：这是单文件免 Key 版。底图和卫星图仍需要联网；道路路线属于后台增强项，即使公共路线服务不可用，景点、故事卡和示意轨迹也应立即显示。</p>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+const DEFAULT_TRIP = {
+  title: "2026 山西六日 · 动态旅行轨迹",
+  sub: "8月16日—8月21日 · 长治—黄崖洞—平遥—洪洞—云丘山",
+  days: [
+    {
+      date:"2026-08-16", short:"8月16日", title:"遮光板一路没让打开", summary:"抵达长治，取 GL8，直奔黄崖洞；下午临时改成整休。",
+      stops:[
+        {time:"13:30", name:"长治王村机场", lng:113.121760, lat:36.244300, tags:["军民合用机场","旅程起点"], image:"", story:"空姐反复强调关闭遮光板。下飞机走连廊，毛玻璃包着过渡区域；走到一扇门后面，我还是看见了几架军用飞机。取好提前租的 GL8，七个人刚好坐满。"},
+        {time:"15:00", name:"黄崖洞文化旅游区", lng:113.383067, lat:36.794563, tags:["景区住宿","第一天整休"], image:"99_SYSTEM/assets/shanxi-2026-cliff-rock.jpg", story:"酒店就在景区里。问完前台才发现三点再进景区已经太晚，于是回房补觉。第一天没有真正逛景点，晚饭仍在景区食堂，晚上继续在电脑前改研学行程网站。"}
+      ]
+    },
+    {
+      date:"2026-08-17", short:"8月17日", title:"黄崖洞碰到一个不收钱的叔叔", summary:"黄崖洞五六小时完整游览，傍晚开车前往平遥。",
+      stops:[
+        {time:"09:00", name:"黄崖洞文化旅游区", lng:113.383067, lat:36.794563, tags:["峡谷","索道","兵工厂旧址"], image:"99_SYSTEM/assets/shanxi-2026-cliff-rock.jpg", story:"观光车、电梯、索道、装甲车一路串起来。索道前遇到一个地陪导游，他说一个月只有四天假、跟游客一样排队。到黄崖洞终点，又遇到做演出的叔叔，认真帮几个孩子戴帽子、系红领巾、摆枪械拍照，一分钱没要。"},
+        {time:"19:30", name:"平遥古城", lng:112.183509, lat:37.204136, tags:["夜宿古城","晋商"], image:"99_SYSTEM/assets/shanxi-2026-pingyao-wall.jpg", story:"下午四点多从黄崖洞出发。一路被科普：平遥能留下来，某种程度上不是因为当年有钱保护，而是没钱大拆大建。到平遥已经是晚上，城在黑里只剩一个轮廓。"}
+      ]
+    },
+    {
+      date:"2026-08-18", short:"8月18日", title:"卖醋的饭店，和一本书", summary:"平遥古城步行与观光车，下午离开，晚上住临汾。",
+      stops:[
+        {time:"09:20", name:"平遥古城", lng:112.183509, lat:37.204136, tags:["古城墙","马面","日昇昌"], image:"99_SYSTEM/assets/shanxi-2026-pingyao-wall.jpg", story:"从北大街走到东西街、南大街，在一个免费茶院里翻到一本讲平遥古城的书。书上说城形像一只面朝南的乌龟，也终于弄懂城墙上的“马面”为什么凸出来——守城人可以从侧面攻击靠墙的敌人。"},
+        {time:"12:10", name:"天元魁饭店（平遥）", lng:112.183850, lat:37.201900, tags:["午餐","醋体验"], image:"", story:"一百多张桌子的大饭店，表面上是吃饭，卖醋却像真正的主业。苹果醋、蜂蜜醋、桂花、玫瑰，一样一样端上来试喝；吃饭场景本身就变成了天然的销售现场。"},
+        {time:"18:30", name:"临汾住宿（大槐树附近）", lng:111.675000, lat:36.270000, tags:["连锁酒店","休整"], image:"", story:"下午三点五十离开平遥，一路开到临汾。我在车上睡了两个多小时。晚上没有再出门，点外卖，饺子、锅贴、面条、羊肉泡馍，结束第三天。"}
+      ]
+    },
+    {
+      date:"2026-08-19", short:"8月19日", title:"广胜寺那面光秃秃的墙", summary:"大槐树门口短停，重点游广胜寺上寺、下寺、水神庙，晚上入住云丘山。",
+      stops:[
+        {time:"09:30", name:"洪洞大槐树寻根祭祖园", lng:111.676716, lat:36.268753, tags:["解手场","门口短停"], image:"", story:"原本准备进大槐树，但当天演出取消，而这里最有意思的恰恰是寻根主题演艺。我们就在门口看看“解手场”、拍了视频，然后把时间留给广胜寺。"},
+        {time:"11:20", name:"广胜寺", lng:111.812872, lat:36.301391, tags:["飞虹塔","水神庙","元代壁画"], image:"99_SYSTEM/assets/shanxi-2026-temple-roof.jpg", story:"上寺看飞虹塔、十二圆觉壁画和地藏殿悬塑；下寺更让我停住脚步：最后那座大殿整面壁画被揭走卖到国外，墙上只剩光秃秃的一大片。站在那面墙前，七十块门票值不值这笔账突然就算不下去了。"},
+        {time:"19:40", name:"云丘山康家坪民宿", lng:111.024306, lat:35.765406, tags:["窑洞大院","红灯笼"], image:"99_SYSTEM/assets/shanxi-2026-red-lanterns-night.jpg", story:"车一路开到半山腰，快到酒店时满山红灯笼亮起来，很震撼。入住康家坪窑洞大院，晚上带孩子从一层一路逛到八层，把每个院子都钻了一遍。"}
+      ]
+    },
+    {
+      date:"2026-08-20", short:"8月20日", title:"六十多张银票，一个都没换成", summary:"云丘山全天：NPC 银票、冰洞、节目；下午放弃壶口，返回长治。",
+      stops:[
+        {time:"09:20", name:"云丘山景区", lng:111.018600, lat:35.756500, tags:["NPC互动","银票","研学"], image:"99_SYSTEM/assets/shanxi-2026-red-lanterns-night.jpg", story:"财神道开始，银票成了孩子们一路追逐的游戏货币。划拳、扔瓶子、背古诗都能换银票，后来又坐摆渡车去冰洞。"},
+        {time:"12:30", name:"云丘山冰洞群", lng:111.004500, lat:35.742900, tags:["冰洞","182元门票"], image:"", story:"冰洞确实壮观，但我们逛了十分钟就出来。洞口前还有一段要另外买电梯票，我从旁边楼梯走上去，两分钟到顶。下午身体有点不舒服，只好频繁喝水休息。"},
+        {time:"16:00", name:"云丘山景区出口", lng:111.018600, lat:35.756500, tags:["60+银票","零纪念品"], image:"", story:"四个孩子攒了六十多张银票，想用七十张换四份纪念品，工作人员不同意。他们一气之下一个都没换。我第一反应是“至少先换三个”，后来又觉得，他们那一下比我一路算得失更干净。"},
+        {time:"21:00", name:"长治 · 妈妈手（晚餐）", lng:113.116300, lat:36.195400, tags:["返程","排队晚餐"], image:"", story:"壶口时间来不及，只好直接掉头回长治。晚上九点到一家很有名的“妈妈手”仍然要排队，九点半才吃上晚饭，十点多回酒店。"}
+      ]
+    },
+    {
+      date:"2026-08-21", short:"8月21日", title:"城隍庙、博物馆，和送出去的啤酒", summary:"上午长治城区短游，下午还车，到机场结束六天自驾。",
+      stops:[
+        {time:"09:30", name:"潞安府城隍庙", lng:113.116378, lat:36.183586, tags:["木版画","古建筑"], image:"", story:"第六天上午在城隍庙慢慢逛，看看古建筑和展出的木版画。旅行最后一天终于回到城区，不再赶长途。"},
+        {time:"11:30", name:"长治市博物馆", lng:113.071467, lat:36.217466, tags:["博物馆","孩子研学"], image:"", story:"中午陈老师带着孩子去了趟长治市博物馆，我们去把 GL8 还掉。六天自驾到这里基本收尾。"},
+        {time:"16:00", name:"长治王村机场", lng:113.121760, lat:36.244300, tags:["返程","旅行终点"], image:"", story:"下午四点到长治机场。从云丘山带出来的那瓶啤酒过不了安检，我把它送给了安检工作人员。旅程从这个军民合用机场开始，也在这里结束。"}
+      ]
+    }
+  ]
+};
+
+const STORAGE = {trip:"shanxiTripNoKeyV1"};
+let trip = loadJSON(STORAGE.trip, structuredClone(DEFAULT_TRIP));
+let map, osmLayer, satelliteLayer, currentBase = 'osm';
+let dayIndex = 0, stopIndex = 0, isPlaying = false, playTimer = null, speed = 1;
+let dayMarkers = [], overviewMarkers = [], segmentPolylines = [], activePolyline = null, routeDistance = 0;
+let completedPolylines = [], globalGuidePolyline = null;
+let routeSegments = [], routeIsPrecise = false, routeEnhancePromise = Promise.resolve(false), routeBuildToken = 0;
+let carMarker = null, carAnimationFrame = null, motionToken = 0, resizeObserver = null;
+let isMoving = false;
+
+const $ = s => document.querySelector(s);
+function loadJSON(key, fallback){ try{const x=localStorage.getItem(key); return x?JSON.parse(x):fallback}catch(e){return fallback} }
+function saveJSON(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+function toast(msg){ const el=$("#toast"); el.textContent=msg; el.classList.add("show"); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove("show"),2400); }
+function esc(s=""){ return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
+function fmtDate(d){ const x=new Date(d+"T00:00:00"); return `${x.getMonth()+1}月${x.getDate()}日`; }
+function currentDay(){ return trip.days[dayIndex]; }
+function currentStop(){ return currentDay().stops[stopIndex]; }
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function clamp(n,min,max){ return Math.max(min,Math.min(max,n)); }
+
+function renderHeader(){ $("#tripTitle").textContent = trip.title; $("#tripSub").textContent = trip.sub; }
+function renderDays(){
+  const panel=$("#daysPanel"); panel.innerHTML="";
+  trip.days.forEach((d,i)=>{
+    const el=document.createElement('div'); el.className='day'+(i===dayIndex?' active':'');
+    el.innerHTML=`<div class="num">D${i+1}</div><div><div class="date">${esc(d.short||fmtDate(d.date))}</div><div class="title">${esc(d.title)}</div><div class="meta">${esc(d.summary||'')}</div></div>`;
+    el.addEventListener('click',()=>selectDay(i,false));
+    panel.appendChild(el);
+  });
+}
+function placeholderImage(stop){
+  const img=$("#stopImage"), ph=$("#photoPlaceholder");
+  img.classList.remove('reveal'); img.hidden=true; ph.hidden=false; ph.classList.remove('fade'); $("#placeholderName").textContent=stop.name;
+}
+function revealStoryCard(){
+  const card=$("#storyCard"); card.classList.remove('traveling','arrival'); void card.offsetWidth; card.classList.add('arrival');
+  setTimeout(()=>card.classList.remove('arrival'),520);
+}
+function showStopCard(index, pan=false, arrival=false){
+  const d=currentDay(); stopIndex=clamp(index,0,d.stops.length-1); const s=currentStop(); const card=$("#storyCard");
+  card.hidden=false; card.classList.remove('traveling');
+  $("#photoBadge").textContent=`DAY ${dayIndex+1} · ${String(stopIndex+1).padStart(2,'0')}`;
+  $("#storyKicker").textContent=`${d.date.replaceAll('-', '.')} · 山西`; $("#stopName").textContent=s.name; $("#stopTime").textContent=s.time||''; $("#stopStory").textContent=s.story||'';
+  $("#storyTags").innerHTML=(s.tags||[]).map(t=>`<span>${esc(t)}</span>`).join('');
+  const img=$("#stopImage"), ph=$("#photoPlaceholder");
+  img.onload=null; img.onerror=null; img.classList.remove('reveal'); img.hidden=true; img.removeAttribute('src'); ph.hidden=false; ph.classList.remove('fade'); $("#placeholderName").textContent=s.name;
+  if(s.image){
+    img.onload=()=>{ img.hidden=false; requestAnimationFrame(()=>{ img.classList.add('reveal'); ph.classList.add('fade'); setTimeout(()=>{ph.hidden=true},560); }); };
+    img.onerror=()=>placeholderImage(s);
+    img.src=s.image;
+  }
+  dayMarkers.forEach((m,i)=>highlightMarker(m,i===stopIndex,i+1));
+  updateProgressUI();
+  if(arrival) revealStoryCard();
+}
+function updateProgressUI(){
+  const d=currentDay(), max=Math.max(1,d.stops.length-1);
+  $("#progress").value=Math.round(stopIndex/max*1000); $("#progressLabel").textContent=`第${dayIndex+1}天 · ${stopIndex+1}/${d.stops.length}`;
+  const status=routeIsPrecise?'公路路线':'示意路线';
+  $("#distanceLabel").textContent=routeDistance?`${status} · 约 ${Math.round(routeDistance/1000)} km`:`${status} · ${d.summary||''}`;
+}
+
+function markerHtml(idx,active=false){
+  return `<div style="position:relative;transform:translate(-50%,-100%) rotate(-45deg);display:flex;align-items:center;justify-content:center;width:${active?40:34}px;height:${active?40:34}px;border-radius:12px 12px 12px 3px;background:${active?'#16a34a':'#fff'};border:3px solid ${active?'#fff':'#16a34a'};box-shadow:${active?'0 0 0 5px rgba(22,163,74,.20),0 8px 24px rgba(0,0,0,.3)':'0 5px 15px rgba(0,0,0,.25)'}"><span style="transform:rotate(45deg);font-size:${active?13:11}px;font-weight:900;color:${active?'#fff':'#166534'}">${idx}</span></div>`;
+}
+function createMarker(stop,idx){
+  const icon=L.divIcon({html:markerHtml(idx+1,false),className:'',iconSize:[40,40],iconAnchor:[20,40]});
+  const m=L.marker([stop.lat,stop.lng],{icon,zIndexOffset:600}).addTo(map);
+  m.on('click',()=>{stopAuto();showStopCard(idx,false,false);setCarAtStop(idx);setProgressToStop(idx)});
+  m.bindTooltip(stop.name,{direction:'top',offset:[0,-30],opacity:.95}); return m;
+}
+function highlightMarker(marker,active,idx){ marker.setIcon(L.divIcon({html:markerHtml(idx,active),className:'',iconSize:[40,40],iconAnchor:[20,40]})); }
+function carIcon(arrived=false){ return L.divIcon({html:`<div class="trip-car${arrived?' arrived':''}">🚙</div>`,className:'',iconSize:[46,46],iconAnchor:[23,23]}); }
+function ensureCar(pos){
+  if(!pos) return;
+  if(!carMarker) carMarker=L.marker(pos,{icon:carIcon(false),zIndexOffset:1800,interactive:false}).addTo(map);
+  else carMarker.setLatLng(pos);
+}
+function setCarAtStop(idx,arrived=false){ const s=currentDay().stops[idx]; if(!s?.lat||!s?.lng)return; ensureCar([s.lat,s.lng]); carMarker.setIcon(carIcon(arrived)); }
+function clearDayOverlays(){
+  cancelCurrentMotion();
+  [...dayMarkers,...overviewMarkers,...segmentPolylines,activePolyline,carMarker].filter(Boolean).forEach(x=>{try{map.removeLayer(x)}catch(e){}});
+  dayMarkers=[]; overviewMarkers=[]; segmentPolylines=[]; activePolyline=null; carMarker=null; routeSegments=[]; routeDistance=0; routeIsPrecise=false;
+}
+function clearCompletedRoutes(){
+  completedPolylines.forEach(x=>{try{map.removeLayer(x)}catch(e){}});
+  completedPolylines=[];
+}
+function commitCurrentDayAsCompleted(){
+  if(!activePolyline||!map)return;
+  const pts=activePolyline.getLatLngs();
+  if(!pts||pts.length<2)return;
+  const line=L.polyline(pts,{color:'#16a34a',weight:7,opacity:.98,lineCap:'round',lineJoin:'round',interactive:false,smoothFactor:1}).addTo(map);
+  completedPolylines.push(line);
+}
+function allTripPoints(){
+  const pts=[];
+  trip.days.forEach(d=>d.stops.forEach(s=>{if(s.lat&&s.lng)pts.push([s.lat,s.lng]);}));
+  return pts;
+}
+function rebuildGlobalGuide(){
+  if(globalGuidePolyline){try{map.removeLayer(globalGuidePolyline)}catch(e){} globalGuidePolyline=null;}
+  const pts=allTripPoints();
+  if(pts.length>1){
+    globalGuidePolyline=L.polyline(pts,{color:'#64748b',weight:4,opacity:.32,dashArray:'8,9',interactive:false,smoothFactor:1}).addTo(map);
+    try{globalGuidePolyline.bringToBack()}catch(e){}
+  }
+}
+function fitTripBounds(){
+  const pts=allTripPoints();
+  if(!pts.length)return;
+  if(pts.length===1)map.setView(pts[0],10,{animate:false});
+  else map.fitBounds(pts,{paddingTopLeft:[350,125],paddingBottomRight:[430,135],animate:false,maxZoom:9});
+  stabilizeMapSize();
+}
+function calcDistance(path){ let d=0; for(let i=1;i<path.length;i++) d+=map.distance(path[i-1],path[i]); return d; }
+function densifyPath(path,stepMeters=2200){
+  if(path.length<2)return path.slice(); const out=[path[0]];
+  for(let i=1;i<path.length;i++){ const a=path[i-1],b=path[i],dist=map.distance(a,b),n=Math.max(1,Math.ceil(dist/stepMeters)); for(let j=1;j<=n;j++){const t=j/n;out.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]);} }
+  return out;
+}
+function fallbackSegment(a,b){ return densifyPath([[a.lat,a.lng],[b.lat,b.lng]],2200); }
+function stabilizeMapSize(){ if(!map)return; [0,50,180,500,1100].forEach(ms=>setTimeout(()=>{try{map.invalidateSize({pan:false,debounceMoveend:true})}catch(e){}},ms)); }
+function fetchWithTimeout(url,ms=5200){
+  const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);
+  return fetch(url,{mode:'cors',signal:c.signal,cache:'no-store'}).finally(()=>clearTimeout(t));
+}
+async function fetchRoute(a,b){
+  const tail=`/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson&steps=false`;
+  const providers=['https://router.project-osrm.org','https://routing.openstreetmap.de/routed-car'];
+  let lastError;
+  for(const base of providers){
+    try{
+      const res=await fetchWithTimeout(base+tail,5200); if(!res.ok)throw new Error('route http '+res.status); const json=await res.json(); const coords=json.routes?.[0]?.geometry?.coordinates; if(!coords?.length)throw new Error('no route'); return coords.map(([lng,lat])=>[lat,lng]);
+    }catch(e){lastError=e;}
+  }
+  throw lastError||new Error('route unavailable');
+}
+function fitDayBounds(){ /* v4: 保持六天整体轨迹视野，不按天重新缩放 */ }
+function flattenSegmentsUntil(stopIdx,partialSegment=null){
+  const out=[];
+  for(let i=0;i<stopIdx;i++){ const seg=routeSegments[i]||[]; if(!seg.length)continue; if(out.length)out.push(seg[0]); out.push(...seg); }
+  if(partialSegment?.length){ if(out.length)out.push(partialSegment[0]); out.push(...partialSegment); }
+  if(!out.length){ const s=currentDay().stops[0]; if(s?.lat&&s?.lng)out.push([s.lat,s.lng]); }
+  return out;
+}
+function setProgressToStop(idx){ if(activePolyline)activePolyline.setLatLngs(flattenSegmentsUntil(idx)); }
+function drawRouteGeometry(paths,precise=false){
+  segmentPolylines.forEach(x=>{try{map.removeLayer(x)}catch(e){}}); segmentPolylines=[];
+  routeSegments=paths.map(p=>p||[]); routeDistance=0; routeIsPrecise=precise;
+  routeSegments.forEach(seg=>{ if(!seg.length)return; routeDistance+=calcDistance(seg); segmentPolylines.push(L.polyline(seg,{color:'#64748b',weight:4,opacity:precise?.36:.30,dashArray:'8,8',interactive:false,smoothFactor:1}).addTo(map)); });
+  if(activePolyline){try{map.removeLayer(activePolyline)}catch(e){}}
+  activePolyline=L.polyline(flattenSegmentsUntil(stopIndex),{color:'#16a34a',weight:7,opacity:.98,lineCap:'round',lineJoin:'round',interactive:false,smoothFactor:1}).addTo(map);
+  setCarAtStop(stopIndex,false); updateProgressUI();
+}
+async function enhanceRouteInBackground(token,daySnapshot){
+  if(daySnapshot.stops.length<2)return false;
+  try{
+    const tasks=[]; for(let i=0;i<daySnapshot.stops.length-1;i++){ const a=daySnapshot.stops[i],b=daySnapshot.stops[i+1]; tasks.push(fetchRoute(a,b)); }
+    const paths=await Promise.all(tasks);
+    if(token!==routeBuildToken||daySnapshot!==currentDay())return false;
+    if(!isMoving)drawRouteGeometry(paths,true); else { routeSegments=paths; routeIsPrecise=true; routeDistance=paths.reduce((sum,p)=>sum+calcDistance(p),0); updateProgressUI(); }
+    toast('公路路线已加载，小车将沿道路行驶'); stabilizeMapSize(); return true;
+  }catch(e){
+    if(token===routeBuildToken){ routeIsPrecise=false; updateProgressUI(); toast('公共路线服务暂不可用，本次使用示意路线动画'); }
+    return false;
+  }
+}
+function buildDayRoute(){
+  const token=++routeBuildToken; clearDayOverlays(); const d=currentDay(); if(!d.stops.length)return Promise.resolve(false);
+  d.stops.forEach((s,i)=>{if(s.lat&&s.lng)dayMarkers.push(createMarker(s,i));});
+  const fallbacks=[]; for(let i=0;i<d.stops.length-1;i++)fallbacks.push(fallbackSegment(d.stops[i],d.stops[i+1]));
+  stopIndex=0; drawRouteGeometry(fallbacks,false); showStopCard(0,false,false); setCarAtStop(0,false);
+  routeEnhancePromise=enhanceRouteInBackground(token,d); return Promise.resolve(false);
+}
+function pathMetrics(path){ const cum=[0]; for(let i=1;i<path.length;i++)cum.push(cum[i-1]+map.distance(path[i-1],path[i])); return {cum,total:cum[cum.length-1]||0}; }
+function interpolatePath(path,metrics,distance){
+  if(!path.length)return null; if(distance<=0)return path[0]; if(distance>=metrics.total)return path[path.length-1];
+  let lo=1; while(lo<metrics.cum.length&&metrics.cum[lo]<distance)lo++; const a=path[lo-1],b=path[lo],span=Math.max(1,metrics.cum[lo]-metrics.cum[lo-1]),t=(distance-metrics.cum[lo-1])/span; return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+}
+function partialPath(path,metrics,distance){
+  if(distance<=0)return [path[0]]; if(distance>=metrics.total)return path.slice(); let lo=1; while(lo<metrics.cum.length&&metrics.cum[lo]<distance)lo++; return [...path.slice(0,lo),interpolatePath(path,metrics,distance)];
+}
+function cancelCurrentMotion(){ motionToken++; if(carAnimationFrame)cancelAnimationFrame(carAnimationFrame); carAnimationFrame=null; isMoving=false; }
+async function arriveAtStop(idx,token){
+  if(token!==motionToken)return false;
+  stopIndex=idx;
+  setCarAtStop(idx,true);
+  dayMarkers.forEach((m,i)=>highlightMarker(m,i===idx,i+1));
+  // 保持整天轨迹视野不动；到站只用照片/故事卡表达“停靠”。
+  await sleep(220);
+  if(token!==motionToken)return false;
+  showStopCard(idx,false,true);
+  updateProgressUI();
+  return true;
+}
+function animateCarSegment(fromIdx){
+  const path=routeSegments[fromIdx]||[];
+  if(path.length<2){ return Promise.resolve(arriveAtStop(fromIdx+1,motionToken)); }
+  cancelCurrentMotion();
+  const token=motionToken;
+  isMoving=true;
+  // 行驶中隐藏上一站照片，地图相机保持不动。
+  $("#storyCard").classList.add('traveling');
+  const metrics=pathMetrics(path);
+  const duration=clamp((metrics.total/22000)*1000,3800,8500)/Math.max(.45,speed);
+  // previous 始终包含此前所有完整路段，确保已走轨迹永久保留为实线。
+  const previous=flattenSegmentsUntil(fromIdx);
+  const start=performance.now();
+  return new Promise(resolve=>{
+    const tick=now=>{
+      if(token!==motionToken){ isMoving=false; resolve(false); return; }
+      const t=clamp((now-start)/duration,0,1);
+      const eased=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+      const dist=metrics.total*eased;
+      const pos=interpolatePath(path,metrics,dist);
+      const part=partialPath(path,metrics,dist);
+      ensureCar(pos);
+      activePolyline?.setLatLngs([...previous,...part]);
+      if(t<1){
+        carAnimationFrame=requestAnimationFrame(tick);
+      }else{
+        carAnimationFrame=null;
+        isMoving=false;
+        // 到站时把整段固定为实线，之后下一段继续在此基础上延伸。
+        activePolyline?.setLatLngs(flattenSegmentsUntil(fromIdx+1));
+        arriveAtStop(fromIdx+1,token).then(resolve);
+      }
+    };
+    carAnimationFrame=requestAnimationFrame(tick);
+  });
+}
+async function ensureRoadBeforePlay(){
+  if(routeIsPrecise)return true; $("#distanceLabel").textContent='正在获取公路路线…';
+  const result=await Promise.race([routeEnhancePromise,sleep(5500).then(()=>false)]); updateProgressUI(); return !!result;
+}
+async function selectDay(i,autoplay=false){ stopAuto(); clearCompletedRoutes(); dayIndex=i; stopIndex=0; renderDays(); buildDayRoute(); if(autoplay)startAuto(); }
+async function nextStop(auto=false){
+  if(isMoving)return;
+  const d=currentDay();
+  if(stopIndex<d.stops.length-1){
+    const from=stopIndex;
+    await animateCarSegment(from);
+    if(auto&&isPlaying){
+      const pause=currentStop().name.includes('黄崖洞')?3400:2200;
+      clearTimeout(playTimer);
+      playTimer=setTimeout(()=>nextStop(true),pause/Math.max(.65,speed));
+    }
+  }else if(dayIndex<trip.days.length-1){
+    if(auto&&isPlaying){
+      commitCurrentDayAsCompleted();
+      await sleep(650);
+      if(!isPlaying)return;
+      dayIndex++; stopIndex=0; renderDays(); buildDayRoute();
+      await ensureRoadBeforePlay();
+      if(isPlaying)playTimer=setTimeout(()=>nextStop(true),700);
+    }
+  }else{
+    // 最后一天结束后也把当前完成轨迹固化下来。
+    commitCurrentDayAsCompleted();
+    stopAuto();
+  }
+}
+function prevStop(){ stopAuto(); if(stopIndex>0){stopIndex--;showStopCard(stopIndex,false,false);setProgressToStop(stopIndex);setCarAtStop(stopIndex,false);} else if(dayIndex>0){dayIndex--;renderDays();buildDayRoute().then(()=>{stopIndex=currentDay().stops.length-1;showStopCard(stopIndex,false,false);setProgressToStop(stopIndex);setCarAtStop(stopIndex,false);});} }
+async function startAuto(){
+  if(isPlaying||isMoving)return; if(dayIndex===trip.days.length-1&&stopIndex===currentDay().stops.length-1){clearCompletedRoutes();dayIndex=0;stopIndex=0;renderDays();buildDayRoute();}
+  isPlaying=true; $("#playBtn").textContent='❚❚'; await ensureRoadBeforePlay(); if(!isPlaying)return; playTimer=setTimeout(()=>nextStop(true),500);
+}
+function stopAuto(){ isPlaying=false; clearTimeout(playTimer); cancelCurrentMotion(); $("#playBtn").textContent='▶'; $("#storyCard").classList.remove('traveling'); }
+
+function showOverview(){
+  stopAuto();
+  fitTripBounds();
+  $("#storyCard").hidden=true;
+  toast('已回到六天整体轨迹视野；绿色实线为已走路线');
+}
+function switchLayer(){
+  if(currentBase==='osm'){map.removeLayer(osmLayer);satelliteLayer.addTo(map);currentBase='sat';$("#layerBtn").innerHTML='🗺️ <span>标准图</span>';}else{map.removeLayer(satelliteLayer);osmLayer.addTo(map);currentBase='osm';$("#layerBtn").innerHTML='🛰️ <span>卫星图</span>';}
+  stabilizeMapSize();
+}
+function initMap(){
+  map=L.map('map',{zoomControl:true,attributionControl:true,preferCanvas:false,zoomAnimation:true,fadeAnimation:false,markerZoomAnimation:true}).setView([36.3,112.1],7);
+  osmLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap',updateWhenIdle:false,updateWhenZooming:true,keepBuffer:4,crossOrigin:true}).addTo(map);
+  satelliteLayer=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri',updateWhenIdle:false,keepBuffer:4,crossOrigin:true});
+  renderHeader();renderDays();
+  map.whenReady(()=>{
+    rebuildGlobalGuide();
+    fitTripBounds();
+    buildDayRoute();
+    stabilizeMapSize();
+  });
+  if('ResizeObserver'in window){resizeObserver=new ResizeObserver(()=>{try{map.invalidateSize({pan:false,debounceMoveend:true})}catch(e){}});resizeObserver.observe(document.getElementById('app'));}
+  window.addEventListener('resize',stabilizeMapSize,{passive:true}); window.addEventListener('orientationchange',stabilizeMapSize,{passive:true}); document.addEventListener('visibilitychange',()=>{if(!document.hidden)stabilizeMapSize();}); if(document.fonts?.ready)document.fonts.ready.then(stabilizeMapSize).catch(()=>{});
+}
+
+// Editor
+function openEditor(tab='dataPane'){
+  $("#editor").showModal(); $("#editTripTitle").value=trip.title; $("#editTripSub").value=trip.sub;
+  $("#editDaySelect").innerHTML=trip.days.map((d,i)=>`<option value="${i}">DAY ${i+1} · ${esc(d.short||fmtDate(d.date))} · ${esc(d.title)}</option>`).join('');
+  $("#editDaySelect").value=dayIndex; $("#editDaySelect").dataset.prev=dayIndex;
+  renderDayEditor(dayIndex); switchTab(tab);
+}
+function switchTab(id){ document.querySelectorAll('.pane').forEach(x=>x.classList.toggle('active', x.id===id)); document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x.dataset.tab===id)); }
+function renderDayEditor(di){ const d=trip.days[di]; $("#editDayDate").value=d.date; $("#editDayTitle").value=d.title; $("#editDaySummary").value=d.summary||''; const host=$("#stopsEditor"); host.innerHTML=''; d.stops.forEach((s,i)=>host.appendChild(stopEditorNode(s,i))); }
+function stopEditorNode(s,i){
+  const details=document.createElement('details'); details.className='stop-editor'; if(i===0) details.open=true;
+  details.innerHTML=`<summary>📍 第 ${i+1} 站 · ${esc(s.name)}</summary><div class="stop-inner"><div class="grid">
+    <div class="field"><label>时间</label><input data-k="time" value="${esc(s.time||'')}"></div>
+    <div class="field"><label>名称</label><input data-k="name" value="${esc(s.name||'')}"></div>
+    <div class="field"><label>经度 lng</label><input data-k="lng" type="number" step="0.000001" value="${s.lng??''}"></div>
+    <div class="field"><label>纬度 lat</label><input data-k="lat" type="number" step="0.000001" value="${s.lat??''}"></div>
+    <div class="field full"><label>图片 URL / 相对路径 / Data URL</label><input data-k="image" value="${esc(s.image||'')}" placeholder="例如 https://... 或上传本机图片"></div>
+    <div class="field full"><label>上传图片（自动压缩）</label><input data-upload type="file" accept="image/*"><div class="hint">上传后图片会写入本浏览器的行程数据。若想长期稳定部署，建议把图片放到网站静态目录并填 URL。</div></div>
+    <div class="field full"><label>标签（逗号分隔）</label><input data-k="tags" value="${esc((s.tags||[]).join(','))}"></div>
+    <div class="field full"><label>故事</label><textarea data-k="story">${esc(s.story||'')}</textarea></div>
+    <div class="field full"><button class="btn danger ghost" data-delete>删除这一站</button></div>
+  </div></div>`;
+  details.querySelector('[data-delete]').onclick=()=>{ details.remove(); relabelStopEditors(); };
+  details.querySelector('[data-upload]').onchange=async e=>{ const f=e.target.files?.[0]; if(!f) return; const data=await compressImage(f, 1280, .78); details.querySelector('[data-k="image"]').value=data; toast('图片已压缩并写入编辑表单'); };
+  details.querySelector('[data-k="name"]').oninput=()=>relabelStopEditors();
+  return details;
+}
+function relabelStopEditors(){ document.querySelectorAll('.stop-editor summary').forEach((s,i)=>{ const name=s.parentElement.querySelector('[data-k="name"]')?.value || '未命名'; s.textContent=`📍 第 ${i+1} 站 · ${name}`; }); }
+function readEditedDay(di){
+  const d=trip.days[di]; d.date=$("#editDayDate").value.trim(); d.short=fmtDate(d.date); d.title=$("#editDayTitle").value.trim(); d.summary=$("#editDaySummary").value.trim();
+  d.stops=[...document.querySelectorAll('#stopsEditor .stop-editor')].map(det=>{ const g=k=>det.querySelector(`[data-k="${k}"]`)?.value??''; return {time:g('time').trim(), name:g('name').trim(), lng:Number(g('lng'))||null, lat:Number(g('lat'))||null, image:g('image').trim(), tags:g('tags').split(/[，,]/).map(x=>x.trim()).filter(Boolean), story:g('story').trim()}; });
+}
+function compressImage(file,maxW=1280,q=.8){ return new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>{ const img=new Image(); img.onload=()=>{ const scale=Math.min(1, maxW/img.width); const c=document.createElement('canvas'); c.width=Math.round(img.width*scale); c.height=Math.round(img.height*scale); c.getContext('2d').drawImage(img,0,0,c.width,c.height); resolve(c.toDataURL('image/jpeg', q)); }; img.onerror=reject; img.src=r.result; }; r.onerror=reject; r.readAsDataURL(file); }); }
+
+$("#editBtn").onclick=()=>openEditor('dataPane'); $("#closeEditor").onclick=()=>$("#editor").close();
+$("#overviewBtn").onclick=showOverview; $("#layerBtn").onclick=switchLayer;
+$("#prevStop").onclick=prevStop; $("#nextStop").onclick=()=>{ stopAuto(); nextStop(false); };
+$("#playBtn").onclick=()=>isPlaying ? stopAuto() : startAuto(); $("#speed").onchange=e=>speed=Number(e.target.value)||1;
+$("#progress").oninput=e=>{ stopAuto(); const d=currentDay(), idx=Math.round(Number(e.target.value)/1000*Math.max(0,d.stops.length-1)); stopIndex=idx; showStopCard(idx,false,false); setProgressToStop(idx); setCarAtStop(idx,false); };
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>switchTab(t.dataset.tab));
+$("#editDaySelect").onchange=e=>{ readEditedDay(Number(e.target.dataset.prev ?? dayIndex)); const i=Number(e.target.value); e.target.dataset.prev=i; renderDayEditor(i); };
+$("#addStop").onclick=()=>{ $("#stopsEditor").appendChild(stopEditorNode({time:'',name:'新景点',lng:null,lat:null,image:'',tags:[],story:''}, document.querySelectorAll('#stopsEditor .stop-editor').length)); relabelStopEditors(); };
+$("#saveData").onclick=()=>{ const di=Number($("#editDaySelect").value); readEditedDay(di); trip.title=$("#editTripTitle").value.trim(); trip.sub=$("#editTripSub").value.trim(); try{ saveJSON(STORAGE.trip, trip); toast('行程已保存'); renderHeader(); renderDays(); dayIndex=di; $("#editor").close(); clearCompletedRoutes(); rebuildGlobalGuide(); fitTripBounds(); buildDayRoute(); } catch(e){ alert('保存失败：浏览器本地空间可能已满，建议把大图改成 URL。'); } };
+$("#exportBtn").onclick=()=>{ const blob=new Blob([JSON.stringify(trip,null,2)], {type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='shanxi-trip-2026.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),500); };
+$("#importInput").onchange=e=>{ const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ try{ const obj=JSON.parse(r.result); if(!obj.days) throw new Error('格式不对'); trip=obj; saveJSON(STORAGE.trip, trip); toast('导入成功'); $("#editor").close(); renderHeader(); renderDays(); clearCompletedRoutes(); rebuildGlobalGuide(); fitTripBounds(); buildDayRoute(); } catch(err){ alert('JSON 导入失败：'+err.message); } }; r.readAsText(f,'utf-8'); };
+$("#resetBtn").onclick=()=>{ if(confirm('确定恢复最初的六天示例数据？当前网页维护内容会被覆盖。')){ trip=structuredClone(DEFAULT_TRIP); saveJSON(STORAGE.trip, trip); toast('已恢复示例'); $("#editor").close(); renderHeader(); renderDays(); clearCompletedRoutes(); rebuildGlobalGuide(); fitTripBounds(); buildDayRoute(); } };
+
+renderHeader(); renderDays(); initMap();
+</script>
+</body>
+</html>
