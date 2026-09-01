@@ -140,12 +140,24 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
   const nextEvent = getDisplayNextEvent({ ...visibleDay, events: activeVisibleEvents }, context.phase);
   const cancelledEventIds = new Set(currentTrip.days.flatMap((day) => day.events.filter((event) => event.status === 'cancelled').map((event) => event.id)));
   const mapPoints = getDestinationMapPoints(currentTrip.destination).filter((point) => !point.eventId || !cancelledEventIds.has(point.eventId));
+  // Coordinates are seed data, not execution state. A persisted execution snapshot
+  // taken before the seed gained coordinates would otherwise blank the whole map,
+  // so geo is always re-read from the live trip rather than from the folded snapshot.
+  const seedGeoByEventId = useMemo(
+    () => new Map(trip.days.flatMap((day) => day.events.map((event) => [event.id, event.geo] as const))),
+    [trip],
+  );
   const mapTrip = useMemo(
     () => ({
       ...currentTrip,
-      days: displayDays.map((day) => ({ ...day, events: day.events.filter((event) => event.status !== 'cancelled') })),
+      days: displayDays.map((day) => ({
+        ...day,
+        events: day.events
+          .filter((event) => event.status !== 'cancelled')
+          .map((event) => ({ ...event, geo: seedGeoByEventId.get(event.id) ?? event.geo })),
+      })),
     }),
-    [currentTrip, displayDays],
+    [currentTrip, displayDays, seedGeoByEventId],
   );
   const overlaySeed = useMemo(() => getJourneyOverlaySeed(trip.id), [trip.id]);
   const activeTodos = (currentTrip.todos ?? [])
