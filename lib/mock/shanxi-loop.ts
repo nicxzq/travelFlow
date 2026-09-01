@@ -2,13 +2,41 @@ import type { TransportMode, TripEvent, TripWithDaysAndEvents } from '@/lib/doma
 
 const tripId = 'shanxi-loop-2026';
 
+// 坐标以 shanxi-actual.ts（同一趟行程的实走记录）为准，黄崖洞与云丘山两处经外部地图源校正。
+// 未单独收录的餐饮、住宿点位锚定到所属景区或市区，精度按区域级而非门店级。
+const changzhiAirport = { lat: 36.2443, lng: 113.12176 };
+const changzhiDowntown = { lat: 36.1954, lng: 113.1163 };
+const huangyadongResort = { lat: 36.794563, lng: 113.383067 };
+const pingyaoOldTown = { lat: 37.204136, lng: 112.183509 };
+const guangshengTemple = { lat: 36.301391, lng: 111.812872 };
+const yunqiuKangjiaping = { lat: 35.765406, lng: 111.024306 };
+
 const places: Record<string, { lat: number; lng: number }> = {
   长沙黄花国际机场T2: { lat: 28.1892, lng: 113.2196 },
-  长治王村机场: { lat: 36.247, lng: 113.126 },
-  长治王村机场租车点: { lat: 36.247, lng: 113.126 },
-  黄崖洞景区: { lat: 36.879, lng: 113.387 },
-  洪洞大槐树寻根祭祖园: { lat: 36.2678, lng: 111.6765 },
-  云丘山景区: { lat: 35.728, lng: 111.02 },
+  长治王村机场: changzhiAirport,
+  长治王村机场租车点: changzhiAirport,
+  长治市: changzhiDowntown,
+  长治锦微酒店: changzhiDowntown,
+  长治妈妈手饭店: changzhiDowntown,
+  长治有味小馆: changzhiDowntown,
+  长治城隍庙: { lat: 36.183586, lng: 113.116378 },
+  黄崖洞景区: { lat: 36.793677, lng: 113.389069 },
+  黄崖洞景区酒店: huangyadongResort,
+  黄崖洞景区食堂: huangyadongResort,
+  平遥古城: pingyaoOldTown,
+  平遥古城客栈: pingyaoOldTown,
+  平遥古城北门: pingyaoOldTown,
+  平遥古城南大街: { lat: 37.201, lng: 112.178 },
+  天元魁饭店总店: { lat: 37.2019, lng: 112.18385 },
+  洪洞县: { lat: 36.2545, lng: 111.6749 },
+  洪洞大槐树寻根祭祖园: { lat: 36.268753, lng: 111.676716 },
+  洪洞大槐树景区附近酒店: { lat: 36.27, lng: 111.675 },
+  广胜寺: guangshengTemple,
+  广胜寺景区: guangshengTemple,
+  云丘山景区: { lat: 35.75381, lng: 111.0192 },
+  云丘山康家坪窑洞大院: yunqiuKangjiaping,
+  云丘山三珍馆: yunqiuKangjiaping,
+  云丘山冰洞群: { lat: 35.7429, lng: 111.0045 },
 };
 
 function nav(keyword: string) {
