@@ -10,7 +10,9 @@ import { NextActionCard } from '@/components/trip/next-action-card';
 import { NearbyDecisionCard } from '@/components/trip/nearby-decision-card';
 import { TimelineCard } from '@/components/trip/timeline-card';
 import { TripReviewCard } from '@/components/trip/trip-review-card';
-import { getDestinationMapPoints, type DestinationMapPoint } from '@/lib/mock/destination-map';
+import type { JourneyStop } from '@/lib/domain/journey';
+import { getDestinationMapPoints } from '@/lib/mock/destination-map';
+import { getJourneyOverlaySeed } from '@/lib/mock/journey-seed';
 import { getStudyCardForEvent, type StudyCard } from '@/lib/mock/study-cards';
 import { getStudyStorageKey, parseStudyProgress, serializeStudyProgress } from '@/lib/study/progress';
 import {
@@ -107,7 +109,7 @@ function getNextActionTitle(day: TripDay, phase: string) {
 export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
   const [doneTodoIds, setDoneTodoIds] = useState<string[]>([]);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
-  const [selectedPointId, setSelectedPointId] = useState<string | undefined>();
+  const [selectedEventId, setSelectedEventId] = useState<string | undefined>();
   const [executionState, setExecutionState] = useState<TripExecutionState>(() => parseTripExecution(null, trip).state);
   const [hydratedExecutionTripId, setHydratedExecutionTripId] = useState<string | null>(null);
   const [executionStorageHealthy, setExecutionStorageHealthy] = useState(true);
@@ -138,6 +140,14 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
   const nextEvent = getDisplayNextEvent({ ...visibleDay, events: activeVisibleEvents }, context.phase);
   const cancelledEventIds = new Set(currentTrip.days.flatMap((day) => day.events.filter((event) => event.status === 'cancelled').map((event) => event.id)));
   const mapPoints = getDestinationMapPoints(currentTrip.destination).filter((point) => !point.eventId || !cancelledEventIds.has(point.eventId));
+  const mapTrip = useMemo(
+    () => ({
+      ...currentTrip,
+      days: displayDays.map((day) => ({ ...day, events: day.events.filter((event) => event.status !== 'cancelled') })),
+    }),
+    [currentTrip, displayDays],
+  );
+  const overlaySeed = useMemo(() => getJourneyOverlaySeed(trip.id), [trip.id]);
   const activeTodos = (currentTrip.todos ?? [])
     .filter((todo) => !doneTodoIds.includes(todo.id) && todo.status !== 'done')
     .sort((a, b) => a.sortOrder - b.sortOrder);
@@ -306,12 +316,11 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
     if (latest) appendExecutionChange(makeChange('undo', latest.eventId, {}, latest.id));
   }
 
-  function selectMapPoint(point: DestinationMapPoint) {
-    setSelectedPointId(point.id);
-    const day = displayDays.find((item) => item.dayIndex === point.dayIndex);
-    if (day) setSelectedDayId(day.id);
+  function selectJourneyStop(stop: JourneyStop) {
+    setSelectedEventId(stop.eventId);
+    setSelectedDayId(stop.dayId);
     window.requestAnimationFrame(() => {
-      document.getElementById(`day-${point.dayIndex}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.getElementById(`day-${stop.dayIndex}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }
 
@@ -476,10 +485,12 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
       </section>
 
       <DestinationMap
-        points={mapPoints}
+        trip={mapTrip}
+        overlaySeed={overlaySeed}
         activeDayIndex={visibleDay.dayIndex}
-        selectedPointId={selectedPointId}
-        onPointSelect={selectMapPoint}
+        selectedEventId={selectedEventId}
+        readOnly={readOnly}
+        onStopSelect={selectJourneyStop}
       />
 
       {context.phase === 'pretrip' ? null : (

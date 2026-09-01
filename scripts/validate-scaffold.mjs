@@ -338,13 +338,23 @@ const requiredSnippets = [
   },
   {
     file: 'components/trip/destination-map.tsx',
-    snippet: '山西自驾目的地地图',
+    snippet: '目的地地图',
     message: 'Destination map overview is missing',
   },
   {
-    file: 'components/trip/destination-map.tsx',
-    snippet: '长治黄崖洞 · 平遥 · 洪洞 · 云丘山',
-    message: 'Actual destination map route summary is missing',
+    file: 'components/trip/journey-map-canvas.tsx',
+    snippet: 'JourneyMapController',
+    message: 'Leaflet journey canvas is missing',
+  },
+  {
+    file: 'hooks/use-journey-playback.ts',
+    snippet: 'useJourneyPlayback',
+    message: 'Journey playback engine is missing',
+  },
+  {
+    file: 'lib/domain/journey.ts',
+    snippet: 'buildJourneyTrack',
+    message: 'Journey track builder is missing',
   },
   {
     file: 'lib/mock/shanxi-loop.ts',

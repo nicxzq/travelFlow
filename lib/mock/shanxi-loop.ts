@@ -1,6 +1,15 @@
-import type { TripEvent, TripWithDaysAndEvents } from '@/lib/domain/trip';
+import type { TransportMode, TripEvent, TripWithDaysAndEvents } from '@/lib/domain/trip';
 
 const tripId = 'shanxi-loop-2026';
+
+const places: Record<string, { lat: number; lng: number }> = {
+  长沙黄花国际机场T2: { lat: 28.1892, lng: 113.2196 },
+  长治王村机场: { lat: 36.247, lng: 113.126 },
+  长治王村机场租车点: { lat: 36.247, lng: 113.126 },
+  黄崖洞景区: { lat: 36.879, lng: 113.387 },
+  洪洞大槐树寻根祭祖园: { lat: 36.2678, lng: 111.6765 },
+  云丘山景区: { lat: 35.728, lng: 111.02 },
+};
 
 function nav(keyword: string) {
   return `https://uri.amap.com/search?keyword=${encodeURIComponent(keyword)}`;
@@ -15,6 +24,7 @@ function event(
   category: TripEvent['category'],
   description: string,
   locationName: string,
+  transportMode?: TransportMode,
 ): TripEvent {
   const dayIndex = dayId.replace('day-', '');
 
@@ -28,9 +38,11 @@ function event(
     category,
     description,
     locationName,
+    geo: places[locationName],
     navigationUrl: nav(locationName),
     status: 'done',
     actualStatus: 'completed',
+    transportMode,
   };
 }
 
