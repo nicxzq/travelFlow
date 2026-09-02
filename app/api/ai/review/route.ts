@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { OpenAIConfigError, OpenAIUpstreamError, parseOpenAIChunk, streamChat } from '@/lib/ai/openai-client';
 import { takeRateLimitToken } from '@/lib/ai/rate-limit';
+import { getCurrentUser } from '@/lib/auth/current-user';
 
 export const runtime = 'nodejs';
 
@@ -89,8 +90,12 @@ export async function POST(request: Request) {
   const requestId = randomUUID();
   const fail = (message: string, status: number) => NextResponse.json({ error: message, requestId }, { status });
 
-  // Bound the payload before parsing it. The middleware gate rejects anonymous
-  // callers, but this route has no auth check of its own — see Stage 7.
+  // 第二道防线。middleware 已经拦过一次，但它不是安全边界（设计文档 §10.2），
+  // 且必须在开流之前判定——响应头一旦随流发出就无法再写。
+  if (!(await getCurrentUser())) {
+    return fail('请先登录后使用。', 401);
+  }
+
   const declaredLength = Number(request.headers.get('content-length'));
   if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
     return fail('请求体过大。', 413);

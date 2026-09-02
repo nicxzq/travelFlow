@@ -3,9 +3,16 @@ import { NextResponse } from 'next/server';
 import type { GeneratedItinerary } from '@/lib/domain/trip';
 import { parseOpenAIChunk } from '@/lib/ai/openai-client';
 import { parseItineraryFromRawContent, requestOpenAIStream } from '@/lib/ai/openai-itinerary';
+import { getCurrentUser } from '@/lib/auth/current-user';
 
 export async function POST(request: Request) {
   const requestId = randomUUID();
+
+  // 第二道防线。middleware 已经拦过一次，但它不是安全边界（设计文档 §10.2），
+  // 且必须在开流之前判定——响应头一旦随流发出就无法再写。
+  if (!(await getCurrentUser())) {
+    return NextResponse.json({ error: '请先登录后使用。' }, { status: 401 });
+  }
 
   try {
     const body = (await request.json()) as {
