@@ -1,11 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import type { GeneratedItinerary } from '@/lib/domain/trip';
-import {
-  parseItineraryFromRawContent,
-  parseOpenAIChunk,
-  requestOpenAIStream,
-} from '@/lib/ai/openai-itinerary';
+import { parseOpenAIChunk } from '@/lib/ai/openai-client';
+import { parseItineraryFromRawContent, requestOpenAIStream } from '@/lib/ai/openai-itinerary';
 
 export async function POST(request: Request) {
   const requestId = randomUUID();

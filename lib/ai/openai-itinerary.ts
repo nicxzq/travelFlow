@@ -1,5 +1,6 @@
 import type { GeneratedItinerary } from '@/lib/domain/trip';
 import { parseItineraryJson } from '@/lib/dify/schema';
+import { completeChat, streamChat } from '@/lib/ai/openai-client';
 
 const OUTPUT_SCHEMA = `{
   "trip_title": "string",
@@ -77,8 +78,6 @@ export type GenerateArgs = {
   refinementMode?: 'canvas_refine' | 'regenerate';
 };
 
-type OpenAIMessage = { role: 'system' | 'user'; content: string };
-
 function buildUserPrompt({ prompt, existingItinerary, refinementMode }: GenerateArgs) {
   if (!existingItinerary || refinementMode === 'regenerate') {
     return prompt;
@@ -96,22 +95,6 @@ ${JSON.stringify(existingItinerary)}
 - 输出完整新 JSON`;
 }
 
-function getRequestConfig() {
-  const baseUrl = process.env.OPENAI_BASE_URL;
-  const apiKey = process.env.OPENAI_API_KEY;
-  const model = process.env.OPENAI_MODEL;
-
-  if (!baseUrl || !apiKey || !model) {
-    throw new Error('AI service is not configured');
-  }
-
-  return {
-    endpoint: `${baseUrl.replace(/\/$/, '')}/chat/completions`,
-    apiKey,
-    model,
-  };
-}
-
 function stripJsonFence(content: string): string {
   const trimmed = content.trim();
   if (trimmed.startsWith('```')) {
@@ -121,35 +104,7 @@ function stripJsonFence(content: string): string {
 }
 
 export async function generateItineraryWithOpenAICompatibleApi(args: GenerateArgs) {
-  const { endpoint, apiKey, model } = getRequestConfig();
-
-  const messages: OpenAIMessage[] = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    { role: 'user', content: buildUserPrompt(args) },
-  ];
-
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({ model, temperature: 0.4, messages }),
-    cache: 'no-store',
-  });
-
-  if (!response.ok) {
-    throw new Error(`AI upstream error: ${response.status}`);
-  }
-
-  const data = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) {
-    throw new Error('AI empty content');
-  }
+  const content = await completeChat({ system: SYSTEM_PROMPT, user: buildUserPrompt(args), temperature: 0.4 });
 
   return {
     itinerary: parseItineraryJson(stripJsonFence(content)),
@@ -158,43 +113,7 @@ export async function generateItineraryWithOpenAICompatibleApi(args: GenerateArg
 }
 
 export async function requestOpenAIStream(args: GenerateArgs): Promise<Response> {
-  const { endpoint, apiKey, model } = getRequestConfig();
-
-  const messages: OpenAIMessage[] = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    { role: 'user', content: buildUserPrompt(args) },
-  ];
-
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({ model, temperature: 0.4, stream: true, messages }),
-    cache: 'no-store',
-  });
-
-  if (!response.ok || !response.body) {
-    throw new Error(`AI stream upstream error: ${response.status}`);
-  }
-
-  return response;
-}
-
-export function parseOpenAIChunk(line: string): string {
-  if (!line.startsWith('data:')) return '';
-  const data = line.slice(5).trim();
-  if (!data || data === '[DONE]') return '';
-
-  try {
-    const parsed = JSON.parse(data) as {
-      choices?: Array<{ delta?: { content?: string } }>;
-    };
-    return parsed.choices?.[0]?.delta?.content ?? '';
-  } catch {
-    return '';
-  }
+  return streamChat({ system: SYSTEM_PROMPT, user: buildUserPrompt(args), temperature: 0.4 });
 }
 
 export function parseItineraryFromRawContent(rawContent: string) {
