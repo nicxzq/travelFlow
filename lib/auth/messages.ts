@@ -11,6 +11,10 @@ export const AUTH_NOTICES = {
 
 export type AuthNoticeCode = keyof typeof AUTH_NOTICES;
 
+/**
+ * 必须用 hasOwn 而非 `in`：`in` 会命中原型链，`?notice=constructor` 会取到
+ * Object 构造函数，作为 prop 传给客户端组件时 RSC 序列化直接抛错，登录页 500。
+ */
 export function resolveAuthNotice(code: string | undefined) {
-  return code && code in AUTH_NOTICES ? AUTH_NOTICES[code as AuthNoticeCode] : undefined;
+  return code && Object.hasOwn(AUTH_NOTICES, code) ? AUTH_NOTICES[code as AuthNoticeCode] : undefined;
 }

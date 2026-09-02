@@ -7,11 +7,15 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
  * client-controlled data and is not an authorization basis.
  */
 export const getCurrentUser = cache(async () => {
-  const {
-    data: { user },
-  } = await createSupabaseServerClient().auth.getUser();
+  const { data, error } = await createSupabaseServerClient().auth.getUser();
 
-  return user;
+  // 不区分「未登录」与「Supabase 不可达」会让后者变成静默全站登出，
+  // 服务端日志里连一行线索都没有。
+  if (error && error.name !== 'AuthSessionMissingError') {
+    console.error('[AUTH_GETUSER_ERROR]', error.message);
+  }
+
+  return data.user;
 });
 
 export async function requireUser() {

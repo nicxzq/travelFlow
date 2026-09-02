@@ -20,7 +20,17 @@ function getString(formData: FormData, key: string) {
  * 不应参与构造发往用户邮箱的链接。
  */
 function siteOrigin() {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+  const origin = process.env.NEXT_PUBLIC_SITE_URL;
+
+  if (origin) return origin;
+
+  // 这个值会被发进用户邮箱。生产漏配时静默回落 localhost 等于发出一封废信，
+  // 且没有任何告警，所以只在开发环境允许回落。
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Missing NEXT_PUBLIC_SITE_URL.');
+  }
+
+  return 'http://localhost:3000';
 }
 
 export async function signUpWithEmail(
@@ -81,7 +91,14 @@ export async function signInWithEmail(
 }
 
 export async function signOut() {
-  await createSupabaseServerClient().auth.signOut();
+  const { error } = await createSupabaseServerClient().auth.signOut();
+
+  // 多数失败路径下 auth-js 仍会清掉本地会话，但「读取会话失败」那一支会直接返回，
+  // cookie 原样保留。吞掉错误就等于把「点了退出其实没退」变成不可观测的故障。
+  if (error) {
+    console.error('[AUTH_SIGNOUT_ERROR]', error.message);
+  }
+
   revalidatePath('/', 'layout');
   redirect('/');
 }

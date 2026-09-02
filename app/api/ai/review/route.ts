@@ -89,7 +89,8 @@ export async function POST(request: Request) {
   const requestId = randomUUID();
   const fail = (message: string, status: number) => NextResponse.json({ error: message, requestId }, { status });
 
-  // Bound the payload before parsing it: this route is a public POST.
+  // Bound the payload before parsing it. The middleware gate rejects anonymous
+  // callers, but this route has no auth check of its own — see Stage 7.
   const declaredLength = Number(request.headers.get('content-length'));
   if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
     return fail('请求体过大。', 413);
