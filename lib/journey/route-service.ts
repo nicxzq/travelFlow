@@ -1,4 +1,5 @@
 import type { LatLng, TransportMode } from '@/lib/domain/journey';
+import { greatCircleArc } from '@/lib/journey/arc';
 import { densifyPath, haversineMeters } from '@/lib/journey/geo';
 
 export type SegmentRequest = {
@@ -22,6 +23,7 @@ const PROVIDERS = ['https://router.project-osrm.org', 'https://routing.openstree
 const REQUEST_TIMEOUT_MS = 6_000;
 const DEFAULT_CONCURRENCY = 3;
 const COINCIDENT_METERS = 1;
+const FLIGHT_ARC_STEPS = 96;
 
 const cacheKey = (request: SegmentRequest, provider: string) => `journey-route:${request.key}:${provider}`;
 
@@ -101,16 +103,23 @@ async function fetchFromProvider(request: SegmentRequest, provider: string, sign
   }
 }
 
-function straightLine(request: SegmentRequest): SegmentResult {
-  return { key: request.key, path: densifyPath([request.from, request.to]), precise: false };
-}
-
-async function resolveSegment(request: SegmentRequest, signal?: AbortSignal): Promise<SegmentResult> {
+/** Deterministic geometry: shown before OSRM answers, and kept whenever it cannot. */
+function schematicSegment(request: SegmentRequest): SegmentResult {
   if (haversineMeters(request.from, request.to) <= COINCIDENT_METERS) {
     return { key: request.key, path: [request.from], precise: false };
   }
 
-  if (request.mode !== 'drive') return straightLine(request);
+  const path =
+    request.mode === 'flight'
+      ? greatCircleArc(request.from, request.to, FLIGHT_ARC_STEPS)
+      : densifyPath([request.from, request.to]);
+
+  return { key: request.key, path, precise: false };
+}
+
+async function resolveSegment(request: SegmentRequest, signal?: AbortSignal): Promise<SegmentResult> {
+  const schematic = schematicSegment(request);
+  if (request.mode !== 'drive' || schematic.path.length < 2) return schematic;
 
   for (const provider of PROVIDERS) {
     if (signal?.aborted) break;
@@ -123,14 +132,14 @@ async function resolveSegment(request: SegmentRequest, signal?: AbortSignal): Pr
     }
   }
 
-  return straightLine(request);
+  return schematic;
 }
 
 export async function fetchRouteSegments(
   requests: SegmentRequest[],
   options: { signal?: AbortSignal; concurrency?: number } = {},
 ): Promise<SegmentResult[]> {
-  const results: SegmentResult[] = requests.map(straightLine);
+  const results: SegmentResult[] = requests.map(schematicSegment);
   if (requests.length === 0) return results;
 
   const concurrency = Math.max(1, Math.min(options.concurrency ?? DEFAULT_CONCURRENCY, requests.length));
@@ -144,7 +153,7 @@ export async function fetchRouteSegments(
       try {
         results[index] = await resolveSegment(requests[index], options.signal);
       } catch {
-        results[index] = straightLine(requests[index]);
+        results[index] = schematicSegment(requests[index]);
       }
     }
   }

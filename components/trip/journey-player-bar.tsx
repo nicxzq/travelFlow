@@ -1,7 +1,7 @@
 'use client';
 
 import { Loader2, Pause, Play, RotateCcw } from 'lucide-react';
-import type { PlaybackStatus } from '@/hooks/use-journey-playback';
+import { DEFAULT_SPEED, type PlaybackStatus } from '@/hooks/use-journey-playback';
 
 type JourneyPlayerBarProps = {
   status: PlaybackStatus;
@@ -17,7 +17,7 @@ type JourneyPlayerBarProps = {
   onSpeedChange: (speed: number) => void;
 };
 
-const SPEEDS = [0.65, 1, 1.8, 3];
+const SPEEDS = [0.5, 1, 2, DEFAULT_SPEED, 5, 8];
 
 export function JourneyPlayerBar({
   status,

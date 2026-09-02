@@ -1,5 +1,5 @@
 export type EventCategory = 'spot' | 'food' | 'hotel' | 'transport' | 'custom';
-export type TransportMode = 'drive' | 'flight' | 'walk';
+export type TransportMode = 'drive' | 'flight' | 'rail' | 'walk';
 export type EventStatus = 'planned' | 'active' | 'done' | 'skipped' | 'changed' | 'cancelled';
 export type TodoScope = 'trip' | 'day' | 'event';
 export type TodoStatus = 'open' | 'done' | 'blocked';
