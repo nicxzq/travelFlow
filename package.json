@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test:execution": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test lib/trip-execution/*.test.mjs lib/platform-search.test.mjs",
+    "test:execution": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test lib/trip-execution/*.test.mjs lib/platform-search.test.mjs",
     "test": "npm run test:execution && node scripts/validate-scaffold.mjs"
   },
   "dependencies": {
