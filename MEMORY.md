@@ -25,6 +25,8 @@
 - [2026-08-17] npm 访问官方 registry 报 `UNABLE_TO_GET_ISSUER_CERT_LOCALLY` 时，不要关闭 TLS 校验；本机可用 `NODE_USE_SYSTEM_CA=1 npm ...` 安全复用系统 CA，已验证依赖安装、typecheck 和 Next build 均可正常完成。
 - [2026-08-17] Vercel Marketplace CLI 的发现/登录流程会在项目根生成 `.tokenize/` 会话元数据；必须加入 `.gitignore`，避免把本地集成会话文件提交到仓库。
 - [2026-08-29] ui-tokenize 插件在本仓库(无 token catalog)会拦截 Write/Edit 工具，返回"No design-token catalog found"且不写盘；改文件改用 Bash(heredoc/perl)或交给 Codex 实现，或先 /tokenize:init 建 catalog。
+- [2026-09-02] codex_bridge.py 报 `[json decode error] ������̫����`（GBK 被当 UTF-8 解出的"请求太频繁"）时是**按 token 计的上游限流**，不是按请求数：同一时刻小 prompt 能成功、7KB 的大 prompt 必失败。解法是把任务拆成每次一个步骤的小 prompt 串行下发，不是退避重试。另：bridge 的 `--PROMPT` 经 shell 传参时，prompt 里的撇号（`Leaflet's`、`'drive'`）会截断单引号串导致 exit 1；先把 prompt 写文件再用 `--PROMPT "$(cat file)"`。
+- [2026-09-02] 本机 Node 22.14 跑不了 `npm run test:execution`：测试文件 import `./model.ts`，而原生类型剥离到 Node 22.18 才默认开启。本地验证需手动加 `--experimental-strip-types`。package.json 未改动。
 
 ## 我的纠正 / 偏好
 
@@ -32,6 +34,7 @@
 
 - [2026-08-15] 现实行程修改必须保存到云端并让同行看到最新数据；长期需要每趟行程有一名主管理者，并允许其他同行修改或补充。
 - [2026-08-15] 所有需要主观判断的产品或技术方案先调用 Claude 评审并直接给出结论与理由，不再逐项向用户确认。
+- [2026-09-02] 轨迹交通方式的判定规则：省内默认汽车、跨省飞机、次选高铁。实现上放弃了省界判定（省级 bbox 与质心都会把云丘山划进陕西，导致 95km 省内自驾被画成飞机），改用纯大圆距离带近似。代价是上海→苏州这类短距离跨省会被判成开车——这是已知且接受的偏差。
 
 ## 外部资源位置
 

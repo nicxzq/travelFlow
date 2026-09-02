@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 import type { Database } from '@/types/supabase';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -13,8 +13,11 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 /**
- * Create a typed Supabase browser client.
+ * Create a cookie-backed Supabase browser client.
  * Throws only when the function is called, not at module import time.
+ *
+ * Deliberately not memoised: a module-level singleton outlives the request in a
+ * long-running server process and can leak one user's session into another's.
  */
 export function createSupabaseBrowserClient() {
   if (!supabaseUrl || !supabaseAnonKey) {
@@ -23,13 +26,5 @@ export function createSupabaseBrowserClient() {
     );
   }
 
-  return createClient<Database>(supabaseUrl, supabaseAnonKey);
+  return createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
 }
-
-/**
- * Shared singleton for app runtime usage.
- * `null` when env is not configured (common in CI static checks).
- */
-export const supabase = isSupabaseConfigured
-  ? createClient<Database>(supabaseUrl as string, supabaseAnonKey as string)
-  : null;

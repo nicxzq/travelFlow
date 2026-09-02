@@ -1,4 +1,5 @@
 import type { EventCategory, TransportMode, TripWithDaysAndEvents } from '@/lib/domain/trip';
+import { resolveLegMode } from '@/lib/domain/transport';
 
 export type { TransportMode } from '@/lib/domain/trip';
 
@@ -25,7 +26,8 @@ export interface JourneyStop {
   lng: number;
   time?: string;
   kind: EventCategory;
-  mode: TransportMode;
+  /** Authored override only. The mode actually rendered belongs to a leg, not a stop. */
+  mode?: TransportMode;
   description?: string;
   navigationUrl?: string;
   imageUrl?: string;
@@ -62,10 +64,6 @@ export interface JourneySegment {
 
 const LAST_SORT_KEY = '99:99';
 
-function inferMode(title: string): TransportMode {
-  return /航班|飞机|flight/i.test(title) ? 'flight' : 'drive';
-}
-
 export function buildJourneyTrack(trip: TripWithDaysAndEvents, overlay: JourneyOverlay = {}): JourneyTrack {
   const stops: JourneyStop[] = [];
   const days: JourneyDay[] = [];
@@ -100,7 +98,7 @@ export function buildJourneyTrack(trip: TripWithDaysAndEvents, overlay: JourneyO
             lng: event.geo.lng,
             time: event.startTime,
             kind: event.category,
-            mode: event.transportMode ?? inferMode(event.title),
+            mode: event.transportMode,
             description: event.description,
             navigationUrl: event.navigationUrl,
             imageUrl: patch.imageUrl,
@@ -143,7 +141,7 @@ export function buildJourneySegments(track: JourneyTrack): JourneySegment[] {
       toIndex: index,
       from: { lat: from.lat, lng: from.lng },
       to: { lat: to.lat, lng: to.lng },
-      mode: to.mode,
+      mode: resolveLegMode(from, to),
     });
   }
 

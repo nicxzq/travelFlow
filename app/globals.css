@@ -10,6 +10,21 @@ body {
   @apply bg-slate-50 text-slate-900 antialiased;
 }
 
+/*
+ * Leaflet gives its panes z-index 400 and its controls 1000, but never puts a
+ * z-index on the container, so those values escape into the page and paint the
+ * map over the sticky header, the stop editor and the fullscreen chrome.
+ * Isolating the container traps them without disturbing Leaflet's internal order.
+ */
+.leaflet-container {
+  isolation: isolate;
+}
+
+/* Clears the fullscreen header, which occupies the same top-left corner. */
+.journey-map--immersive .leaflet-top {
+  top: 5.5rem;
+}
+
 @keyframes studyReveal {
   from {
     opacity: 0;

@@ -1,5 +1,11 @@
 import type { TripDay, TripEvent, TripWithDaysAndEvents } from '@/lib/domain/trip';
-import { getActiveTripChanges, type TripChange, type TripExecutionState } from './model.ts';
+import {
+  countTripChanges,
+  getActiveTripChanges,
+  isBaselineStale,
+  type TripChange,
+  type TripExecutionState,
+} from './model.ts';
 
 export type ScheduleConflict = {
   dayId: string;
@@ -27,14 +33,20 @@ export type ExecutionReviewRow = {
   actualAt?: string;
   deviationMinutes?: number;
   changed: boolean;
+  missing: boolean;
 };
 
 export type ExecutionReview = {
+  archived: boolean;
+  archivedAt?: string;
+  baselineStale: boolean;
+  changesAfterArchive: number;
   initialCount: number;
   currentActiveCount: number;
   counts: ExecutionReviewCounts;
   cancelledEventIds: string[];
   completedEventIds: string[];
+  addedEventIds: string[];
   rows: ExecutionReviewRow[];
 };
 
@@ -246,54 +258,75 @@ export function getScheduleConflicts(trip: TripWithDaysAndEvents) {
 }
 
 export function getExecutionReview(state: TripExecutionState): ExecutionReview {
-  const current = foldTripExecution(state);
+  // Plan side is the untouched original; actual side is the frozen archive once
+  // one exists, so a later seed revision can no longer rewrite either end.
+  const baseline = state.originalPlan;
+  const archive = state.archive;
+  const current = archive?.finalSnapshot ?? foldTripExecution(state);
   const activeChanges = getActiveTripChanges(state.changes);
-  const counts: ExecutionReviewCounts = { update: 0, cancel: 0, move: 0, postpone: 0, swap: 0, actualComplete: 0 };
+  // Counts must come from the same instant as `current`, or an archived review
+  // reports a cancellation its own frozen rows cannot show.
+  const raw = archive?.counts ?? countTripChanges(state.changes);
+  const counts: ExecutionReviewCounts = {
+    update: raw.update,
+    cancel: raw.cancel,
+    move: raw.move,
+    postpone: raw.postpone,
+    swap: raw.swap,
+    actualComplete: raw['actual-complete'],
+  };
 
-  for (const change of activeChanges) {
-    if (change.type === 'actual-complete') counts.actualComplete += 1;
-    else if (change.type !== 'undo') counts[change.type] += 1;
-  }
-
-  const initialEvents = state.initialSnapshot.days.flatMap((day) => day.events);
-  const initialDayDates = new Map(state.initialSnapshot.days.map((day) => [day.id, day.date]));
+  const initialEvents = baseline.days.flatMap((day) => day.events);
+  const initialDayDates = new Map(baseline.days.map((day) => [day.id, day.date]));
   const currentEvents = current.days.flatMap((day) => day.events);
   const currentById = new Map(currentEvents.map((event) => [event.id, event]));
+  const baselineIds = new Set(initialEvents.map((event) => event.id));
   const rows = initialEvents.map((initialEvent) => {
-    const currentEvent = currentById.get(initialEvent.id) ?? initialEvent;
+    // An event absent from the actual trip is a real deviation. Falling back to
+    // the baseline event here would report it as unchanged.
+    const currentEvent = currentById.get(initialEvent.id);
+    const actual = currentEvent ?? initialEvent;
+    const missing = currentEvent === undefined;
     const changed =
-      currentEvent.dayId !== initialEvent.dayId ||
-      currentEvent.startTime !== initialEvent.startTime ||
-      currentEvent.endTime !== initialEvent.endTime ||
-      currentEvent.title !== initialEvent.title ||
-      currentEvent.status === 'cancelled' ||
-      currentEvent.actualStatus === 'completed';
+      missing ||
+      actual.dayId !== initialEvent.dayId ||
+      actual.startTime !== initialEvent.startTime ||
+      actual.endTime !== initialEvent.endTime ||
+      actual.title !== initialEvent.title ||
+      actual.status === 'cancelled' ||
+      actual.actualStatus === 'completed';
     const initialDate = initialDayDates.get(initialEvent.dayId);
     const plannedAt =
       initialDate && initialEvent.startTime ? new Date(`${initialDate}T${initialEvent.startTime}:00+08:00`).getTime() : Number.NaN;
-    const actualAt = currentEvent.actualAt ? new Date(currentEvent.actualAt).getTime() : Number.NaN;
+    const actualAt = actual.actualAt ? new Date(actual.actualAt).getTime() : Number.NaN;
     const deviationMinutes =
       Number.isFinite(plannedAt) && Number.isFinite(actualAt) ? Math.round((actualAt - plannedAt) / 60000) : undefined;
     return {
       eventId: initialEvent.id,
-      title: currentEvent.title,
+      title: actual.title,
       initialDayId: initialEvent.dayId,
-      currentDayId: currentEvent.dayId,
+      currentDayId: actual.dayId,
       initialStartTime: initialEvent.startTime,
-      currentStartTime: currentEvent.startTime,
-      cancelled: currentEvent.status === 'cancelled',
-      actualAt: currentEvent.actualAt,
+      currentStartTime: actual.startTime,
+      cancelled: actual.status === 'cancelled',
+      actualAt: actual.actualAt,
       deviationMinutes,
       changed,
+      missing,
     };
   });
 
   return {
+    archived: Boolean(archive),
+    archivedAt: archive?.archivedAt,
+    baselineStale: isBaselineStale(state),
+    changesAfterArchive: archive ? Math.max(activeChanges.length - archive.activeChangeCount, 0) : 0,
     initialCount: initialEvents.length,
     currentActiveCount: currentEvents.filter((event) => event.status !== 'cancelled').length,
     counts,
     cancelledEventIds: currentEvents.filter((event) => event.status === 'cancelled').map((event) => event.id),
     completedEventIds: currentEvents.filter((event) => event.actualStatus === 'completed').map((event) => event.id),
+    addedEventIds: currentEvents.filter((event) => !baselineIds.has(event.id)).map((event) => event.id),
     rows,
   };
 }

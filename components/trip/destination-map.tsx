@@ -1,13 +1,12 @@
 'use client';
 
-import { Layers, MapPin, Maximize2, Minimize2, Pencil, Play, Route } from 'lucide-react';
+import { Globe, Layers, MapPin, Maximize2, Minimize2, Pencil, Play, Route } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useExpandedOverlay } from '@/hooks/use-expanded-overlay';
-import { useJourneyOverlay } from '@/hooks/use-journey-overlay';
 import { useJourneyPlayback } from '@/hooks/use-journey-playback';
-import { buildJourneyTrack, type JourneyOverlay, type JourneyStop, type LatLng } from '@/lib/domain/journey';
+import { buildJourneyTrack, type JourneyOverlay, type JourneyStop, type LatLng, type TransportMode } from '@/lib/domain/journey';
 import type { TripWithDaysAndEvents } from '@/lib/domain/trip';
 import type { BaseLayerId, JourneyMapController } from '@/components/trip/journey-map-canvas';
 import { JourneyDayRail } from '@/components/trip/journey-day-rail';
@@ -23,9 +22,18 @@ const JourneyMapCanvas = dynamic(
   },
 );
 
+export type JourneyOverlayState = {
+  overlay: JourneyOverlay;
+  stored: JourneyOverlay;
+  error: string | null;
+  save: (next: JourneyOverlay) => boolean;
+  reset: () => void;
+};
+
 type DestinationMapProps = {
   trip: TripWithDaysAndEvents;
-  overlaySeed?: JourneyOverlay;
+  /** Owned by the workspace so the review card sees the same edited photos. */
+  overlayState: JourneyOverlayState;
   activeDayIndex?: number;
   selectedEventId?: string;
   readOnly?: boolean;
@@ -36,18 +44,20 @@ const ACTION_BUTTON = 'inline-flex items-center gap-1.5 rounded-md border px-2.5
 
 export function DestinationMap({
   trip,
-  overlaySeed = {},
+  overlayState,
   activeDayIndex,
   selectedEventId,
   readOnly = false,
   onStopSelect,
 }: DestinationMapProps) {
-  const { overlay, stored, error, save, reset } = useJourneyOverlay(trip.id, overlaySeed);
+  const { overlay, stored, error, save, reset } = overlayState;
   const track = useMemo(() => buildJourneyTrack(trip, overlay), [overlay, trip]);
 
   const controllerRef = useRef<JourneyMapController | null>(null);
   const routePathsRef = useRef<LatLng[][]>([]);
   const lastFrameRef = useRef<{ position: LatLng; traveled: LatLng[]; segmentIndex: number } | null>(null);
+  const segmentModesRef = useRef<TransportMode[]>([]);
+  const playingRef = useRef(false);
 
   const [activeStopIndex, setActiveStopIndex] = useState(0);
   const [canvasRevision, setCanvasRevision] = useState(0);
@@ -58,8 +68,9 @@ export function DestinationMap({
   const playback = useJourneyPlayback(track, {
     onFrame: useCallback((position: LatLng, traveled: LatLng[], segmentIndex: number) => {
       lastFrameRef.current = { position, traveled, segmentIndex };
-      controllerRef.current?.setVehicle(position);
+      controllerRef.current?.setVehicle(position, segmentModesRef.current[segmentIndex] ?? 'drive');
       controllerRef.current?.setProgress(segmentIndex, traveled);
+      if (playingRef.current) controllerRef.current?.followVehicle(position);
     }, []),
     onArrive: useCallback((stopIndex: number) => setActiveStopIndex(stopIndex), []),
     onSegmentsChange: useCallback((paths: LatLng[][]) => {
@@ -67,6 +78,9 @@ export function DestinationMap({
       controllerRef.current?.setRouteGeometry(paths);
     }, []),
   });
+
+  segmentModesRef.current = playback.segmentModes;
+  playingRef.current = playback.status === 'playing';
 
   const { expanded, mounted, open, close } = useExpandedOverlay();
   const activeStop = track.stops[activeStopIndex];
@@ -83,17 +97,25 @@ export function DestinationMap({
   // keyed on canvasRevision rather than `expanded` alone: the dynamic chunk may not
   // have mounted yet at the moment the overlay opens.
   useEffect(() => {
+    controllerRef.current?.setBaseLayer(baseLayer);
+  }, [baseLayer, canvasRevision]);
+
+  useEffect(() => {
     const controller = controllerRef.current;
     if (!controller) return;
 
-    controller.setBaseLayer(baseLayer);
     if (routePathsRef.current.length) controller.setRouteGeometry(routePathsRef.current);
     if (lastFrameRef.current) {
-      controller.setVehicle(lastFrameRef.current.position);
-      controller.setProgress(lastFrameRef.current.segmentIndex, lastFrameRef.current.traveled);
+      const { position, segmentIndex, traveled } = lastFrameRef.current;
+      controller.setVehicle(position, segmentModesRef.current[segmentIndex] ?? 'drive');
+      controller.setProgress(segmentIndex, traveled);
     }
+
+    // invalidateSize alone does not re-frame, so the new viewport size needs its
+    // own fit after the map moves between the page and the overlay.
     controller.invalidate();
-  }, [baseLayer, canvasRevision, expanded]);
+    controller.fitCore();
+  }, [canvasRevision, expanded]);
 
   const selectStop = useCallback(
     (index: number) => {
@@ -110,13 +132,18 @@ export function DestinationMap({
     else void playback.play();
   }, [playback]);
 
+  const resetPlayback = useCallback(() => {
+    playback.reset();
+    controllerRef.current?.fitCore();
+  }, [playback]);
+
   const toggleJourneyMode = useCallback(() => {
     setJourneyMode((current) => {
-      if (current) playback.reset();
+      if (current) resetPlayback();
       else void playback.play();
       return !current;
     });
-  }, [playback]);
+  }, [playback, resetPlayback]);
 
   if (track.stops.length === 0) {
     return (
@@ -154,6 +181,14 @@ export function DestinationMap({
         <Layers className="h-3.5 w-3.5" />
         {baseLayer === 'osm' ? '卫星图' : '标准图'}
       </button>
+      <button
+        type="button"
+        onClick={() => controllerRef.current?.fitAll()}
+        className={`${ACTION_BUTTON} border-slate-200 bg-white text-slate-700 hover:bg-slate-50`}
+      >
+        <Globe className="h-3.5 w-3.5" />
+        全览
+      </button>
       {readOnly ? null : (
         <button
           type="button"
@@ -181,14 +216,15 @@ export function DestinationMap({
     </div>
   );
 
-  const canvas = (
+  const renderCanvas = (immersive: boolean) => (
     <JourneyMapCanvas
       stops={track.stops}
+      segmentModes={playback.segmentModes}
       activeStopIndex={activeStopIndex}
       controllerRef={controllerRef}
       onReady={() => setCanvasRevision((revision) => revision + 1)}
       onStopSelect={selectStop}
-      className="h-full w-full"
+      className={`h-full w-full${immersive ? ' journey-map--immersive' : ''}`}
     />
   );
 
@@ -202,7 +238,7 @@ export function DestinationMap({
       precise={playback.precise}
       speed={playback.speed}
       onToggle={togglePlayback}
-      onReset={playback.reset}
+      onReset={resetPlayback}
       onSeek={playback.seekToRatio}
       onSpeedChange={playback.setSpeed}
     />
@@ -242,7 +278,7 @@ export function DestinationMap({
         aria-modal="true"
         aria-label="行程轨迹全屏播放"
       >
-        <div className="absolute inset-0">{canvas}</div>
+        <div className="absolute inset-0 z-0">{renderCanvas(true)}</div>
 
         <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start gap-3 p-4">
           <div className="pointer-events-auto rounded-xl border border-white/60 bg-white/92 px-3.5 py-2.5 shadow-lg backdrop-blur">
@@ -263,7 +299,7 @@ export function DestinationMap({
           {storyCard}
         </div>
 
-        <div className="absolute bottom-4 left-1/2 z-30 w-[min(760px,calc(100vw-1.5rem))] -translate-x-1/2 pb-[env(safe-area-inset-bottom)]">
+        <div className="absolute bottom-4 left-1/2 z-20 w-[min(760px,calc(100vw-1.5rem))] -translate-x-1/2 pb-[env(safe-area-inset-bottom)]">
           {player}
         </div>
 
@@ -290,7 +326,7 @@ export function DestinationMap({
       </div>
 
       <div className="mt-4 grid lg:grid-cols-[1.6fr_320px]">
-        <div className="relative h-[420px] lg:h-[520px]">{canvas}</div>
+        <div className="relative h-[420px] lg:h-[520px]">{renderCanvas(false)}</div>
 
         <div className="max-h-[420px] space-y-2 overflow-auto border-t border-slate-200 bg-slate-50 p-4 lg:max-h-[520px] lg:border-l lg:border-t-0">
           {journeyMode

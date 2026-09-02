@@ -6,6 +6,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { getNextEvent, getTripScheduleContext } from '@/lib/domain/trip-schedule';
 import type { TripDay, TripEvent, TripWithDaysAndEvents } from '@/lib/domain/trip';
 import { DestinationMap } from '@/components/trip/destination-map';
+import type { ReviewPhoto } from '@/components/trip/trip-review-ai';
+import { useJourneyOverlay } from '@/hooks/use-journey-overlay';
 import { NextActionCard } from '@/components/trip/next-action-card';
 import { NearbyDecisionCard } from '@/components/trip/nearby-decision-card';
 import { TimelineCard } from '@/components/trip/timeline-card';
@@ -16,11 +18,13 @@ import { getJourneyOverlaySeed } from '@/lib/mock/journey-seed';
 import { getStudyCardForEvent, type StudyCard } from '@/lib/mock/study-cards';
 import { getStudyStorageKey, parseStudyProgress, serializeStudyProgress } from '@/lib/study/progress';
 import {
+  archiveTripExecution,
   createTripChange,
   getActiveTripChanges,
   getTripExecutionStorageKey,
   parseTripExecution,
   serializeTripExecution,
+  unarchiveTripExecution,
   type TripChange,
   type TripChangeType,
   type TripExecutionState,
@@ -160,6 +164,18 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
     [currentTrip, displayDays, seedGeoByEventId],
   );
   const overlaySeed = useMemo(() => getJourneyOverlaySeed(trip.id), [trip.id]);
+  const overlayState = useJourneyOverlay(trip.id, overlaySeed);
+  const reviewPhotos = useMemo<ReviewPhoto[]>(
+    () =>
+      sortedDays
+        .flatMap((day) => day.events.map((event) => ({ day, event })))
+        .flatMap(({ day, event }) => {
+          const imageUrl = overlayState.overlay[event.id]?.imageUrl;
+          return imageUrl ? [{ dayIndex: day.dayIndex, stopTitle: event.title, imageUrl }] : [];
+        })
+        .map((photo, index) => ({ ...photo, index })),
+    [overlayState.overlay, sortedDays],
+  );
   const activeTodos = (currentTrip.todos ?? [])
     .filter((todo) => !doneTodoIds.includes(todo.id) && todo.status !== 'done')
     .sort((a, b) => a.sortOrder - b.sortOrder);
@@ -196,10 +212,14 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
       setExecutionStorageHealthy(!result.invalid);
       if (result.invalid) {
         setExecutionWarning('本地行程变更记录已损坏，当前暂用原计划展示；为避免覆盖，已暂停本地保存。');
-      } else if (result.rebased && result.discardedChangeCount > 0) {
-        setExecutionWarning(
-          `基础行程已更新为平遥安排；保留了仍有效的修改，移除了 ${result.discardedChangeCount} 条已失效的旧地点修改。`,
-        );
+      } else {
+        const notices = [
+          result.rebased && result.discardedChangeCount > 0
+            ? `基础行程已更新为平遥安排；保留了仍有效的修改，移除了 ${result.discardedChangeCount} 条已失效的旧地点修改。`
+            : null,
+          result.baselineStale ? '复盘的原计划基线来自更早的行程版本，与当前基础行程不是同一版，对比结果仅供参考。' : null,
+        ].filter(Boolean);
+        setExecutionWarning(notices.length > 0 ? notices.join(' ') : null);
       }
     } catch {
       setExecutionStorageHealthy(false);
@@ -326,6 +346,20 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
   function undoLatestChange() {
     const latest = activeExecutionChanges.at(-1);
     if (latest) appendExecutionChange(makeChange('undo', latest.eventId, {}, latest.id));
+  }
+
+  function archiveExecution() {
+    if (readOnly) return;
+    setExecutionState((current) =>
+      current.initialSnapshot.id === trip.id ? archiveTripExecution(current, foldTripExecution(current)) : current,
+    );
+  }
+
+  function unarchiveExecution() {
+    if (readOnly) return;
+    setExecutionState((current) =>
+      current.initialSnapshot.id === trip.id ? unarchiveTripExecution(current) : current,
+    );
   }
 
   function selectJourneyStop(stop: JourneyStop) {
@@ -498,7 +532,7 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
 
       <DestinationMap
         trip={mapTrip}
-        overlaySeed={overlaySeed}
+        overlayState={overlayState}
         activeDayIndex={visibleDay.dayIndex}
         selectedEventId={selectedEventId}
         readOnly={readOnly}
@@ -655,7 +689,16 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
         </section>
       ) : null}
 
-      {context.phase === 'pretrip' ? null : <TripReviewCard trip={currentTrip} review={executionReview} />}
+      {context.phase === 'pretrip' ? null : (
+        <TripReviewCard
+          trip={currentTrip}
+          review={executionReview}
+          photos={reviewPhotos}
+          readOnly={readOnly || !executionMatchesTrip}
+          onArchive={archiveExecution}
+          onUnarchive={unarchiveExecution}
+        />
+      )}
 
       <section className="rounded-lg border border-slate-200 bg-white p-5">
         <h2 className="text-lg font-semibold">完整行程</h2>

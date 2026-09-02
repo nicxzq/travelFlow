@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { JourneyTrack, LatLng } from '@/lib/domain/journey';
 import { buildJourneySegments } from '@/lib/domain/journey';
 import { densifyPath, interpolateAlong, partialPath, pathMetrics, type PathMetrics } from '@/lib/journey/geo';
+import { segmentDurationMs } from '@/lib/journey/pacing';
 import { fetchRouteSegments, type SegmentRequest } from '@/lib/journey/route-service';
 
 export type PlaybackStatus = 'idle' | 'loadingRoute' | 'playing' | 'paused' | 'finished';
@@ -21,11 +22,12 @@ type ResolvedSegment = {
   path: LatLng[];
   metrics: PathMetrics;
   startMeters: number;
+  metersPerMs: number;
   precise: boolean;
 };
 
-/** Whole-trip playback duration at 1x, before per-speed scaling. */
-const BASE_DURATION_MS = 90_000;
+/** Trips are long; 1x is a review speed, not the one people watch at. */
+export const DEFAULT_SPEED = 3;
 const MAX_FRAME_DELTA_MS = 64;
 const STATE_SYNC_INTERVAL_MS = 100;
 const ARRIVAL_PAUSE_MS = 900;
@@ -45,7 +47,7 @@ export function useJourneyPlayback(track: JourneyTrack, handlers: PlaybackHandle
   const [stopIndex, setStopIndex] = useState(0);
   const [traveledMeters, setTraveledMeters] = useState(0);
   const [precise, setPrecise] = useState(false);
-  const [speed, setSpeed] = useState(1);
+  const [speed, setSpeed] = useState(DEFAULT_SPEED);
   const [routeRevision, setRouteRevision] = useState(0);
 
   const routePathsRef = useRef(new Map<string, { path: LatLng[]; precise: boolean }>());
@@ -54,6 +56,7 @@ export function useJourneyPlayback(track: JourneyTrack, handlers: PlaybackHandle
   speedRef.current = speed;
 
   const baseSegments = useMemo(() => buildJourneySegments(track), [track]);
+  const segmentModes = useMemo(() => baseSegments.map((segment) => segment.mode), [baseSegments]);
 
   /** Changes whenever the stop composition changes, not just when the trip changes. */
   const trackSignature = useMemo(
@@ -68,6 +71,7 @@ export function useJourneyPlayback(track: JourneyTrack, handlers: PlaybackHandle
       const resolved = routePathsRef.current.get(segment.key);
       const path = resolved?.path ?? densifyPath([segment.from, segment.to]);
       const metrics = pathMetrics(path);
+      const durationMs = segmentDurationMs(metrics.total, segment.mode);
       const item: ResolvedSegment = {
         fromStopIndex: segment.fromIndex,
         toStopIndex: segment.toIndex,
@@ -75,6 +79,7 @@ export function useJourneyPlayback(track: JourneyTrack, handlers: PlaybackHandle
         path,
         metrics,
         startMeters,
+        metersPerMs: durationMs > 0 ? metrics.total / durationMs : 0,
         precise: resolved?.precise ?? false,
       };
       startMeters += metrics.total;
@@ -222,9 +227,14 @@ export function useJourneyPlayback(track: JourneyTrack, handlers: PlaybackHandle
       const delta = Math.min(timestamp - previousTimestamp, MAX_FRAME_DELTA_MS);
       previousTimestamp = timestamp;
 
-      const advanced = distanceRef.current + delta * (total / BASE_DURATION_MS) * speedRef.current;
       const current = list[cursor];
       const boundary = current ? current.startMeters + current.metrics.total : total;
+      // A sub-metre leg gets no duration budget, so it is stepped over rather than
+      // advanced through; otherwise a zero rate would spin the loop forever.
+      const advanced =
+        current && current.metersPerMs === 0
+          ? boundary
+          : distanceRef.current + delta * (current?.metersPerMs ?? 0) * speedRef.current;
 
       // Stop exactly on the stop rather than sliding past it, so the arrival pause
       // and the story card land on the right place.
@@ -337,6 +347,7 @@ export function useJourneyPlayback(track: JourneyTrack, handlers: PlaybackHandle
     totalMeters,
     precise,
     speed,
+    segmentModes,
     play,
     pause,
     seekToStop,
