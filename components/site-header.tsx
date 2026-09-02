@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Clock3, Compass, FolderClock, PlusCircle } from 'lucide-react';
+import { Clock3, Compass, FolderClock, LogIn, LogOut, PlusCircle, UserCircle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { signOut } from '@/app/actions/auth-actions';
 import { shanxiLoopTrip } from '@/lib/mock/shanxi-loop';
 
 function formatDateTime(value: Date) {
@@ -25,7 +26,12 @@ function dateOnly(value: Date) {
   }).format(value);
 }
 
-export function SiteHeader() {
+type SiteHeaderProps = {
+  // 由 app/layout.tsx 服务端取得后传入：本组件需要客户端时钟，不能改成 async。
+  userEmail: string | null;
+};
+
+export function SiteHeader({ userEmail }: SiteHeaderProps) {
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -69,6 +75,31 @@ export function SiteHeader() {
               <FolderClock className="h-4 w-4" />
               行程管理
             </Link>
+            {userEmail ? (
+              <>
+                <span className="hidden max-w-44 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 md:inline-flex">
+                  <UserCircle className="h-4 w-4 shrink-0 text-emerald-600" />
+                  <span className="truncate">{userEmail}</span>
+                </span>
+                <form action={signOut}>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    退出
+                  </button>
+                </form>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                <LogIn className="h-4 w-4" />
+                登录
+              </Link>
+            )}
             <Link
               href="/new"
               className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
