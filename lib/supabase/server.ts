@@ -20,8 +20,12 @@ export function createSupabaseServerClient() {
         setAll: (list) => {
           try {
             list.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
-          } catch {
-            // Server Components cannot write cookies; middleware performs the refresh.
+          } catch (cause) {
+            // Server Component 写不了 cookie，由 middleware 刷新，属预期。但同一个 client
+            // 也跑在 Route Handler 和 Server Action 里，那两处写的是刚换出来的新会话，
+            // middleware 无从代劳——失败即「确认成功却没登上」且毫无痕迹。两者在这里无法
+            // 区分，所以至少留一行。
+            console.warn('[AUTH_COOKIE_WRITE_SKIPPED]', cause);
           }
         },
       },
