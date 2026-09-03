@@ -38,6 +38,32 @@ export function TripReviewCard({ trip, review, photos, readOnly = false, onArchi
     [trip.days],
   );
   const changedRows = review.rows.filter((row) => row.changed);
+  // Every changed event across every day, scrolled rather than truncated: a cut-off
+  // list silently understates how far execution drifted from the plan.
+  const changedRowList = (
+    <div
+      tabIndex={0}
+      role="group"
+      aria-label="发生变化的行程明细"
+      className="max-h-[26rem] space-y-2 overflow-auto pr-1"
+    >
+      {changedRows.map((row) => (
+        <article key={row.eventId} className="rounded-md bg-white/80 p-3 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-medium text-slate-900">{row.title}</p>
+            <span className={row.cancelled || row.missing ? 'text-xs font-medium text-red-600' : 'text-xs font-medium text-indigo-700'}>
+              {row.missing ? '实际行程中已无此项' : row.cancelled ? '已取消' : row.actualAt ? '实际已完成' : '计划已调整'}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-slate-600">
+            {dayLabels.get(row.initialDayId) ?? row.initialDayId} {row.initialStartTime ?? '--:--'} →{' '}
+            {dayLabels.get(row.currentDayId) ?? row.currentDayId} {row.currentStartTime ?? '--:--'}
+          </p>
+          {row.actualAt ? <p className="mt-1 text-xs text-slate-500">{formatDeviation(row.deviationMinutes)}</p> : null}
+        </article>
+      ))}
+    </div>
+  );
   const facts = useMemo(
     () => ({
       destination: trip.destination,
@@ -111,21 +137,17 @@ export function TripReviewCard({ trip, review, photos, readOnly = false, onArchi
       <div className="mt-4 space-y-2">
         <h3 className="text-sm font-semibold text-indigo-950">发生变化的行程</h3>
         {changedRows.length === 0 ? <p className="rounded-md bg-white/70 p-3 text-sm text-indigo-900">还没有记录行程调整或实际完成。</p> : null}
-        {changedRows.slice(0, 10).map((row) => (
-          <article key={row.eventId} className="rounded-md bg-white/80 p-3 text-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="font-medium text-slate-900">{row.title}</p>
-              <span className={row.cancelled || row.missing ? 'text-xs font-medium text-red-600' : 'text-xs font-medium text-indigo-700'}>
-                {row.missing ? '实际行程中已无此项' : row.cancelled ? '已取消' : row.actualAt ? '实际已完成' : '计划已调整'}
-              </span>
-            </div>
-            <p className="mt-1 text-xs text-slate-600">
-              {dayLabels.get(row.initialDayId) ?? row.initialDayId} {row.initialStartTime ?? '--:--'} →{' '}
-              {dayLabels.get(row.currentDayId) ?? row.currentDayId} {row.currentStartTime ?? '--:--'}
-            </p>
-            {row.actualAt ? <p className="mt-1 text-xs text-slate-500">{formatDeviation(row.deviationMinutes)}</p> : null}
-          </article>
-        ))}
+        {changedRows.length > 0 && review.baselineStale ? (
+          // Stale baselines flag every old event as missing, so the list is collapsed
+          // by default rather than presenting a version mismatch as execution drift.
+          <details className="rounded-md bg-white/70 p-3">
+            <summary className="cursor-pointer text-sm font-medium text-indigo-900">
+              展开 {changedRows.length} 条明细（版本不一致，仅供参考）
+            </summary>
+            <div className="mt-3">{changedRowList}</div>
+          </details>
+        ) : null}
+        {changedRows.length > 0 && !review.baselineStale ? changedRowList : null}
       </div>
 
       {review.baselineStale ? (

@@ -127,8 +127,29 @@ function cloneArchive(archive: TripArchive): TripArchive {
   return { ...archive, finalSnapshot: cloneTrip(archive.finalSnapshot) };
 }
 
-export function getTripExecutionStorageKey(tripId: string) {
+/**
+ * The `u:` / `anon:` discriminator keeps a user id that happens to look like a
+ * trip id from colliding, and keeps both apart from the legacy unscoped key so
+ * that adopting the legacy state stays an explicit decision.
+ */
+export function getTripExecutionStorageKey(tripId: string, userId?: string | null) {
+  return userId ? `travelflow:execution:u:${userId}:${tripId}` : `travelflow:execution:anon:${tripId}`;
+}
+
+export function getLegacyTripExecutionStorageKey(tripId: string) {
   return `travelflow:execution:${tripId}`;
+}
+
+/** Cheap enough to run on the library page, where no trip snapshot is available to parse against. */
+export function hasArchivedTripExecution(raw: string | null) {
+  if (!raw) return false;
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return isRecord(parsed) && parsed.version === 2 && isRecord(parsed.archive);
+  } catch {
+    return false;
+  }
 }
 
 export function parseTripExecution(raw: string | null, fallbackTrip: TripWithDaysAndEvents): TripExecutionParseResult {

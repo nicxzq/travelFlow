@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ExternalLink, FolderClock, Share2 } from 'lucide-react';
 import type { GeneratedItinerary } from '@/lib/domain/trip';
+import { getTripExecutionStorageKey, hasArchivedTripExecution } from '@/lib/trip-execution/model';
 
 type LocalItineraryItem = {
   id: string;
@@ -12,8 +13,13 @@ type LocalItineraryItem = {
   itinerary: GeneratedItinerary;
 };
 
+type TripLibraryProps = {
+  userId?: string | null;
+};
+
 const LIST_KEY = 'travelflow_local_itinerary_list_v1';
 const ACTIVE_KEY = 'travelflow_local_itinerary_v1';
+const ARCHIVED_TRIP_ID = 'shanxi-actual-2026';
 
 function safeParse<T>(raw: string | null): T | null {
   if (!raw) return null;
@@ -24,12 +30,18 @@ function safeParse<T>(raw: string | null): T | null {
   }
 }
 
-export function TripLibrary() {
+export function TripLibrary({ userId = null }: TripLibraryProps) {
   const [localItems, setLocalItems] = useState<LocalItineraryItem[]>([]);
+  const [archivedVisible, setArchivedVisible] = useState(false);
 
+  // Archive is the current viewer's own action, so the card is driven by their
+  // scoped storage rather than being shown to everyone who opens the page.
   useEffect(() => {
     setLocalItems(safeParse<LocalItineraryItem[]>(localStorage.getItem(LIST_KEY)) ?? []);
-  }, []);
+    setArchivedVisible(
+      hasArchivedTripExecution(localStorage.getItem(getTripExecutionStorageKey(ARCHIVED_TRIP_ID, userId))),
+    );
+  }, [userId]);
 
   function openGenerated(item: LocalItineraryItem) {
     localStorage.setItem(ACTIVE_KEY, JSON.stringify(item.itinerary));
@@ -73,36 +85,38 @@ export function TripLibrary() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-amber-200 bg-amber-50 p-5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div>
-            <p className="inline-flex items-center gap-2 text-sm font-medium text-amber-800">
-              <FolderClock className="h-4 w-4" />
-              已归档 · 成行轨迹
-            </p>
-            <h2 className="mt-2 text-xl font-semibold">2026 山西六日自驾 · 成行轨迹</h2>
-            <p className="mt-2 text-sm text-amber-900">
-              2026-08-16 至 2026-08-21 · 实际走过的 17 站 · 支持动态轨迹回放与景点照片
-            </p>
+      {archivedVisible ? (
+        <section className="rounded-lg border border-amber-200 bg-amber-50 p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="inline-flex items-center gap-2 text-sm font-medium text-amber-800">
+                <FolderClock className="h-4 w-4" />
+                已归档 · 成行轨迹
+              </p>
+              <h2 className="mt-2 text-xl font-semibold">2026 山西六日自驾 · 成行轨迹</h2>
+              <p className="mt-2 text-sm text-amber-900">
+                2026-08-16 至 2026-08-21 · 实际走过的 17 站 · 支持动态轨迹回放与景点照片
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/trip/shanxi-actual-2026"
+                className="inline-flex items-center gap-2 rounded-md bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700"
+              >
+                <ExternalLink className="h-4 w-4" />
+                打开轨迹
+              </Link>
+              <Link
+                href="/trip/shanxi-actual-2026/share"
+                className="inline-flex items-center gap-2 rounded-md border border-amber-300 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
+              >
+                <Share2 className="h-4 w-4" />
+                同行分享
+              </Link>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/trip/shanxi-actual-2026"
-              className="inline-flex items-center gap-2 rounded-md bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700"
-            >
-              <ExternalLink className="h-4 w-4" />
-              打开轨迹
-            </Link>
-            <Link
-              href="/trip/shanxi-actual-2026/share"
-              className="inline-flex items-center gap-2 rounded-md border border-amber-300 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
-            >
-              <Share2 className="h-4 w-4" />
-              同行分享
-            </Link>
-          </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       <section className="rounded-lg border border-slate-200 bg-white p-5">
         <h2 className="text-lg font-semibold">本地保存记录</h2>

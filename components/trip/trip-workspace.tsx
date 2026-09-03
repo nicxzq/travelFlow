@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { AlertTriangle, BookOpenCheck, CalendarDays, ClipboardList, Lock, RotateCcw, Share2 } from 'lucide-react';
+import { AlertTriangle, BookOpenCheck, CalendarDays, ChevronDown, ClipboardList, Lock, RotateCcw, Share2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { getNextEvent, getTripScheduleContext } from '@/lib/domain/trip-schedule';
 import type { TripDay, TripEvent, TripWithDaysAndEvents } from '@/lib/domain/trip';
@@ -10,6 +10,7 @@ import type { ReviewPhoto } from '@/components/trip/trip-review-ai';
 import { useJourneyOverlay } from '@/hooks/use-journey-overlay';
 import { NextActionCard } from '@/components/trip/next-action-card';
 import { NearbyDecisionCard } from '@/components/trip/nearby-decision-card';
+import { MapStopDetail } from '@/components/trip/map-stop-detail';
 import { TimelineCard } from '@/components/trip/timeline-card';
 import { TripReviewCard } from '@/components/trip/trip-review-card';
 import type { JourneyStop } from '@/lib/domain/journey';
@@ -21,6 +22,7 @@ import {
   archiveTripExecution,
   createTripChange,
   getActiveTripChanges,
+  getLegacyTripExecutionStorageKey,
   getTripExecutionStorageKey,
   parseTripExecution,
   serializeTripExecution,
@@ -34,6 +36,8 @@ import { foldTripExecution, getExecutionReview, getScheduleConflicts } from '@/l
 type TripWorkspaceProps = {
   trip: TripWithDaysAndEvents;
   readOnly?: boolean;
+  /** Resolved on the server; execution state is stored per viewer, not per browser. */
+  userId?: string | null;
 };
 
 function dateOnly(value: Date) {
@@ -110,18 +114,25 @@ function getNextActionTitle(day: TripDay, phase: string) {
   return '下一站';
 }
 
-export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
+export function TripWorkspace({ trip, readOnly = false, userId = null }: TripWorkspaceProps) {
   const [doneTodoIds, setDoneTodoIds] = useState<string[]>([]);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | undefined>();
+  const [selectedStopEventId, setSelectedStopEventId] = useState<string | null>(null);
+  const [todayDate, setTodayDate] = useState<string | null>(null);
+  const [todayFocusOpen, setTodayFocusOpen] = useState(true);
   const [executionState, setExecutionState] = useState<TripExecutionState>(() => parseTripExecution(null, trip).state);
-  const [hydratedExecutionTripId, setHydratedExecutionTripId] = useState<string | null>(null);
+  const [hydratedExecutionKey, setHydratedExecutionKey] = useState<string | null>(null);
   const [executionStorageHealthy, setExecutionStorageHealthy] = useState(true);
   const [executionWarning, setExecutionWarning] = useState<string | null>(null);
   const [completedStudyTaskIds, setCompletedStudyTaskIds] = useState<string[]>([]);
   const [studyAnswers, setStudyAnswers] = useState<Record<string, string>>({});
   const [hydratedStudyTripId, setHydratedStudyTripId] = useState<string | null>(null);
   const executionMatchesTrip = executionState.initialSnapshot.id === trip.id;
+  // Both the read and the write effect key off this one string. Deriving it twice
+  // is how user A's in-memory state ends up written under user B's (or the
+  // anonymous) key when userId changes without the component remounting.
+  const executionKey = getTripExecutionStorageKey(trip.id, userId);
   const currentTrip = useMemo(
     () => (executionMatchesTrip ? foldTripExecution(executionState) : trip),
     [executionMatchesTrip, executionState, trip],
@@ -184,6 +195,9 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
   );
   const completedCount = (currentTrip.todos ?? []).filter((todo) => doneTodoIds.includes(todo.id) || todo.status === 'done').length;
   const visibleStudyCards = activeVisibleEvents.map(getStudyCardForEvent).filter(isStudyCard);
+  // Resolved after mount, never during render: the server and the browser can straddle
+  // a midnight boundary, and a hard conditional would turn that into a subtree mismatch.
+  const isTodaySelected = todayDate !== null && visibleDay.date === todayDate;
   const scheduleConflicts = useMemo(() => getScheduleConflicts(currentTrip), [currentTrip]);
   const executionReview = useMemo(
     () => getExecutionReview(executionMatchesTrip ? executionState : parseTripExecution(null, trip).state),
@@ -200,16 +214,50 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
     '导航、景区开放和天气以当天官方信息为准，长车程日优先保留还车和高速缓冲。',
   ].filter(Boolean);
 
+  const selectedMapEvent = selectedStopEventId
+    ? currentTrip.days.flatMap((day) => day.events).find((event) => event.id === selectedStopEventId)
+    : undefined;
+  const selectedMapDay = selectedMapEvent ? sortedDays.find((day) => day.id === selectedMapEvent.dayId) : undefined;
+  const selectedMapDayPosition = selectedMapDay ? sortedDays.findIndex((day) => day.id === selectedMapDay.id) : -1;
+  // Siblings come from displayDays, not the raw day: "swap with the next item" has to
+  // mean the next item the user actually sees in the timeline and on the map.
+  const selectedMapSiblings =
+    displayDays.find((day) => day.id === selectedMapDay?.id)?.events.filter((event) => event.status !== 'cancelled') ?? [];
+  const selectedMapPosition = selectedMapSiblings.findIndex((event) => event.id === selectedMapEvent?.id);
+
   useEffect(() => {
-    const storageKey = getTripExecutionStorageKey(trip.id);
-    setHydratedExecutionTripId(null);
+    setTodayDate(dateOnly(new Date()));
+  }, []);
+
+  useEffect(() => {
+    setHydratedExecutionKey(null);
     setExecutionState(parseTripExecution(null, trip).state);
     setExecutionWarning(null);
 
     try {
-      const result = parseTripExecution(window.localStorage.getItem(storageKey), trip);
+      let raw = window.localStorage.getItem(executionKey);
+      let legacyKey: string | null = null;
+
+      // One-time claim of the pre-scoping key. Only a signed-in viewer may claim it;
+      // an anonymous visitor must not inherit whoever used this browser before.
+      // localStorage cannot prove the old state belonged to this account, so this is
+      // "the first signed-in user on this browser adopts it", not an ownership fact.
+      if (!raw && userId && !readOnly) {
+        legacyKey = getLegacyTripExecutionStorageKey(trip.id);
+        raw = window.localStorage.getItem(legacyKey);
+      }
+
+      const result = parseTripExecution(raw, trip);
       setExecutionState(result.state);
       setExecutionStorageHealthy(!result.invalid);
+
+      // Never drop the legacy key on a failed parse: that would destroy the only
+      // copy of state we could not read.
+      if (legacyKey && raw && !result.invalid) {
+        window.localStorage.setItem(executionKey, serializeTripExecution(result.state));
+        window.localStorage.removeItem(legacyKey);
+      }
+
       if (result.invalid) {
         setExecutionWarning('本地行程变更记录已损坏，当前暂用原计划展示；为避免覆盖，已暂停本地保存。');
       } else {
@@ -225,13 +273,18 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
       setExecutionStorageHealthy(false);
       setExecutionWarning('浏览器暂时无法读取本地行程记录，本次修改刷新后可能丢失。');
     } finally {
-      setHydratedExecutionTripId(trip.id);
+      setHydratedExecutionKey(executionKey);
+      setSelectedStopEventId(null);
+      setSelectedEventId(undefined);
     }
-  }, [trip]);
+  }, [executionKey, readOnly, trip, userId]);
 
   useEffect(() => {
+    // readOnly is part of the guard so that merely opening a share link no longer
+    // materialises a storage key for the viewer.
     if (
-      hydratedExecutionTripId !== trip.id ||
+      readOnly ||
+      hydratedExecutionKey !== executionKey ||
       executionState.initialSnapshot.id !== trip.id ||
       !executionStorageHealthy
     ) {
@@ -240,7 +293,7 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
 
     const timer = window.setTimeout(() => {
       try {
-        window.localStorage.setItem(getTripExecutionStorageKey(trip.id), serializeTripExecution(executionState));
+        window.localStorage.setItem(executionKey, serializeTripExecution(executionState));
       } catch {
         setExecutionStorageHealthy(false);
         setExecutionWarning('浏览器无法保存最新行程变更，本次修改刷新后可能丢失。');
@@ -248,7 +301,7 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
     }, 400);
 
     return () => window.clearTimeout(timer);
-  }, [executionState, executionStorageHealthy, hydratedExecutionTripId, trip.id]);
+  }, [executionKey, executionState, executionStorageHealthy, hydratedExecutionKey, readOnly, trip.id]);
 
   useEffect(() => {
     const storageKey = getStudyStorageKey(trip.id);
@@ -362,12 +415,12 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
     );
   }
 
+  // Selecting on the map opens the detail panel under the map and nothing else.
+  // It deliberately does not change the visible day or scroll the page: both would
+  // move the viewport away from the thing the user just clicked.
   function selectJourneyStop(stop: JourneyStop) {
     setSelectedEventId(stop.eventId);
-    setSelectedDayId(stop.dayId);
-    window.requestAnimationFrame(() => {
-      document.getElementById(`day-${stop.dayIndex}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
+    setSelectedStopEventId(stop.eventId);
   }
 
   function selectDay(dayId: string, dayIndex: number) {
@@ -437,7 +490,7 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
         </div>
       </header>
 
-      {executionWarning && hydratedExecutionTripId === trip.id ? (
+      {executionWarning && hydratedExecutionKey === executionKey ? (
         <section role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
           {executionWarning}
         </section>
@@ -508,6 +561,119 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
         </section>
       ) : null}
 
+      {isTodaySelected ? (
+        <section className="overflow-hidden rounded-lg border border-emerald-200 bg-emerald-50">
+          <button
+            type="button"
+            aria-expanded={todayFocusOpen}
+            aria-controls="today-focus-panel"
+            onClick={() => setTodayFocusOpen((current) => !current)}
+            className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+          >
+            <span>
+              <span className="block text-sm font-medium text-emerald-700">今日聚焦</span>
+              <h2 className="mt-1 block text-lg font-semibold text-slate-950">
+                Day {visibleDay.dayIndex} · {visibleDay.date}
+              </h2>
+            </span>
+            <ChevronDown className={`h-5 w-5 shrink-0 text-emerald-700 transition-transform ${todayFocusOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {/* Kept mounted while collapsed: aria-controls must reference a node that exists. */}
+          <div
+            id="today-focus-panel"
+            hidden={!todayFocusOpen}
+            className={todayFocusOpen ? 'grid gap-4 border-t border-emerald-100 p-5 lg:grid-cols-2' : undefined}
+          >
+              <NextActionCard
+                event={nextEvent}
+                readOnly={readOnly}
+                title={getNextActionTitle(visibleDay, context.phase)}
+                state={nextEvent ? getEventState(nextEvent, visibleDay.date) : 'future'}
+              />
+
+              <aside className="rounded-lg border border-amber-200 bg-amber-50 p-5">
+                <p className="inline-flex items-center gap-2 text-sm font-medium text-amber-800">
+                  <AlertTriangle className="h-4 w-4" />
+                  今日重点
+                </p>
+                <p className="mt-2 text-sm text-amber-900">{visibleDay.summary}</p>
+              </aside>
+
+              <article className="rounded-lg border border-slate-200 bg-white p-5">
+                <h2 className="inline-flex items-center gap-2 text-lg font-semibold">
+                  <ClipboardList className="h-5 w-5 text-emerald-600" />
+                  今日待办
+                </h2>
+                <div className="mt-3 space-y-2">
+                  {context.todayTodos.length === 0 ? <p className="text-sm text-slate-500">当天暂无待办。</p> : null}
+                  {context.todayTodos.map((todo) => (
+                    <label key={todo.id} className="flex items-start gap-3 rounded-md bg-slate-50 p-3 text-sm text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={doneTodoIds.includes(todo.id) || todo.status === 'done'}
+                        disabled={readOnly}
+                        onChange={() => toggleTodo(todo.id)}
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600"
+                      />
+                      <span className={doneTodoIds.includes(todo.id) || todo.status === 'done' ? 'text-slate-400 line-through' : ''}>
+                        {todo.title}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </article>
+
+              <article className="rounded-lg border border-cyan-200 bg-cyan-50 p-5">
+                <h2 className="inline-flex items-center gap-2 text-lg font-semibold">
+                  <BookOpenCheck className="h-5 w-5 text-cyan-700" />
+                  今日研学
+                </h2>
+                {visibleStudyCards.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    {visibleStudyCards.map((card) => (
+                      <div key={card.id} className="rounded-md bg-white/80 p-3 text-sm">
+                        <p className="font-medium text-cyan-950">{card.theme}</p>
+                        <p className="mt-1 text-xs text-cyan-800">
+                          {card.roleName} · {card.estimatedMinutes} 分钟 · {card.badgeName}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-cyan-900">当天景点暂无研学任务。</p>
+                )}
+              </article>
+
+              <article className="rounded-lg border border-slate-200 bg-white p-5 lg:col-span-2">
+                <h2 className="inline-flex items-center gap-2 text-lg font-semibold">
+                  <CalendarDays className="h-5 w-5 text-blue-600" />
+                  明日预告
+                </h2>
+                {tomorrow ? (
+                  <div className="mt-3 space-y-3">
+                    <div>
+                      <p className="font-medium">
+                        Day {tomorrow.dayIndex} · {tomorrow.date}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600">{tomorrow.summary}</p>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {tomorrow.events.filter((event) => event.status !== 'cancelled').slice(0, 3).map((event) => (
+                        <div key={event.id} className="rounded-md bg-slate-50 p-3 text-sm">
+                          <span className="font-medium">{event.startTime ?? '--:--'}</span> · {event.title}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-slate-500">没有下一天安排。</p>
+                )}
+              </article>
+          </div>
+        </section>
+      ) : null}
+
       <section className="rounded-lg border border-slate-200 bg-white p-5">
         <h2 className="text-lg font-semibold">行程总览</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -536,107 +702,83 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
         activeDayIndex={visibleDay.dayIndex}
         selectedEventId={selectedEventId}
         readOnly={readOnly}
+        stopDetail={
+          selectedMapEvent && selectedMapDay ? (
+            <MapStopDetail
+              // Remounts per stop: without it React keeps EventQuickActions' confirm
+              // and target-day state, so a pending 确认标记取消 would carry over and
+              // cancel the next stop the user clicks in a single press.
+              key={selectedMapEvent.id}
+              event={selectedMapEvent}
+              tags={overlayState.overlay[selectedMapEvent.id]?.tags ?? []}
+              dayLabel={`Day ${selectedMapDay.dayIndex} · ${selectedMapDay.date ?? '日期待定'}`}
+              studyCard={getStudyCardForEvent(selectedMapEvent)}
+              readOnly={readOnly}
+              availableDays={sortedDays}
+              nextDayId={selectedMapDayPosition >= 0 ? sortedDays[selectedMapDayPosition + 1]?.id : undefined}
+              nextEventId={selectedMapPosition >= 0 ? selectedMapSiblings[selectedMapPosition + 1]?.id : undefined}
+              onJumpToDay={() => selectDay(selectedMapDay.id, selectedMapDay.dayIndex)}
+              onPostpone={postponeEvent}
+              onMove={moveEvent}
+              onSwap={swapEvents}
+              onCancel={cancelEvent}
+              onRestore={restoreEvent}
+              onToggleActualComplete={toggleActualComplete}
+            />
+          ) : null
+        }
         onStopSelect={selectJourneyStop}
       />
 
-      {context.phase === 'pretrip' ? null : (
-        <section className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-          <NextActionCard
-            event={nextEvent}
-            readOnly={readOnly}
-            title={getNextActionTitle(visibleDay, context.phase)}
-            state={nextEvent ? getEventState(nextEvent, visibleDay.date) : 'future'}
-          />
-
-          <aside className="rounded-lg border border-amber-200 bg-amber-50 p-5">
-            <p className="inline-flex items-center gap-2 text-sm font-medium text-amber-800">
-              <AlertTriangle className="h-4 w-4" />
-              今日重点
-            </p>
-            <h2 className="mt-2 text-lg font-semibold">
-              Day {visibleDay.dayIndex} · {visibleDay.date}
-            </h2>
-            <p className="mt-2 text-sm text-amber-900">{visibleDay.summary}</p>
-          </aside>
-        </section>
-      )}
-
       {context.phase === 'intrip' ? <NearbyDecisionCard trip={currentTrip} currentEvent={nextEvent} mapPoints={mapPoints} /> : null}
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        {context.phase === 'pretrip' ? null : (
-          <article className="rounded-lg border border-slate-200 bg-white p-5">
-            <h2 className="inline-flex items-center gap-2 text-lg font-semibold">
-              <ClipboardList className="h-5 w-5 text-emerald-600" />
-              行程待办
-            </h2>
-            <div className="mt-3 space-y-2">
-              {currentTrip.todos?.length === 0 ? <p className="text-sm text-slate-500">暂无待办。</p> : null}
-              {(currentTrip.todos ?? []).map((todo) => (
-                <label key={todo.id} className="flex items-start gap-3 rounded-md bg-slate-50 p-3 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={doneTodoIds.includes(todo.id) || todo.status === 'done'}
-                    disabled={readOnly}
-                    onChange={() => toggleTodo(todo.id)}
-                    className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600"
-                  />
-                  <span className={doneTodoIds.includes(todo.id) || todo.status === 'done' ? 'text-slate-400 line-through' : ''}>
-                    {todo.title}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </article>
-        )}
+      <section className="rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="text-lg font-semibold">每日行程</h2>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          {sortedDays.map((day) => (
+            <button
+              type="button"
+              key={day.id}
+              onClick={() => selectDay(day.id, day.dayIndex)}
+              className={`rounded-md border p-3 text-left transition hover:border-emerald-300 hover:bg-emerald-50 ${
+                visibleDay.id === day.id ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-white'
+              }`}
+            >
+              <p className="font-medium">
+                Day {day.dayIndex} · {day.date}
+              </p>
+              <p className="mt-1 text-sm text-slate-600">{day.summary}</p>
+            </button>
+          ))}
+        </div>
+      </section>
 
-        <article className="rounded-lg border border-cyan-200 bg-cyan-50 p-5">
-          <h2 className="inline-flex items-center gap-2 text-lg font-semibold">
-            <BookOpenCheck className="h-5 w-5 text-cyan-700" />
-            今日研学
-          </h2>
-          {visibleStudyCards.length > 0 ? (
-            <div className="mt-3 space-y-2">
-              {visibleStudyCards.map((card) => (
-                <div key={card.id} className="rounded-md bg-white/80 p-3 text-sm">
-                  <p className="font-medium text-cyan-950">{card.theme}</p>
-                  <p className="mt-1 text-xs text-cyan-800">
-                    {card.roleName} · {card.estimatedMinutes} 分钟 · {card.badgeName}
-                  </p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-3 text-sm text-cyan-900">当天景点暂无研学任务。</p>
-          )}
-        </article>
-
+      {context.phase === 'pretrip' ? null : (
         <article className="rounded-lg border border-slate-200 bg-white p-5">
           <h2 className="inline-flex items-center gap-2 text-lg font-semibold">
-            <CalendarDays className="h-5 w-5 text-blue-600" />
-            明日预告
+            <ClipboardList className="h-5 w-5 text-emerald-600" />
+            行程待办
           </h2>
-          {tomorrow ? (
-            <div className="mt-3 space-y-3">
-              <div>
-                <p className="font-medium">
-                  Day {tomorrow.dayIndex} · {tomorrow.date}
-                </p>
-                <p className="mt-1 text-sm text-slate-600">{tomorrow.summary}</p>
-              </div>
-              <div className="space-y-2">
-                {tomorrow.events.filter((event) => event.status !== 'cancelled').slice(0, 3).map((event) => (
-                  <div key={event.id} className="rounded-md bg-slate-50 p-3 text-sm">
-                    <span className="font-medium">{event.startTime ?? '--:--'}</span> · {event.title}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <p className="mt-3 text-sm text-slate-500">没有下一天安排。</p>
-          )}
+          <p className="mt-1 text-sm text-slate-500">整趟行程的待办，不限当天。</p>
+          <div className="mt-3 grid gap-2 lg:grid-cols-2">
+            {currentTrip.todos?.length === 0 ? <p className="text-sm text-slate-500">暂无待办。</p> : null}
+            {(currentTrip.todos ?? []).map((todo) => (
+              <label key={todo.id} className="flex items-start gap-3 rounded-md bg-slate-50 p-3 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={doneTodoIds.includes(todo.id) || todo.status === 'done'}
+                  disabled={readOnly}
+                  onChange={() => toggleTodo(todo.id)}
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600"
+                />
+                <span className={doneTodoIds.includes(todo.id) || todo.status === 'done' ? 'text-slate-400 line-through' : ''}>
+                  {todo.title}
+                </span>
+              </label>
+            ))}
+          </div>
         </article>
-      </section>
+      )}
 
       <section className="space-y-3">
         <h2 id={`day-${visibleDay.dayIndex}`} className="scroll-mt-28 text-lg font-semibold">
@@ -689,7 +831,9 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
         </section>
       ) : null}
 
-      {context.phase === 'pretrip' ? null : (
+      {/* Last section, and only once the whole trip is over: a review of a trip still
+          under way compares against a plan that has not finished executing. */}
+      {context.phase === 'posttrip' ? (
         <TripReviewCard
           trip={currentTrip}
           review={executionReview}
@@ -698,28 +842,7 @@ export function TripWorkspace({ trip, readOnly = false }: TripWorkspaceProps) {
           onArchive={archiveExecution}
           onUnarchive={unarchiveExecution}
         />
-      )}
-
-      <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <h2 className="text-lg font-semibold">完整行程</h2>
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          {sortedDays.map((day) => (
-            <button
-              type="button"
-              key={day.id}
-              onClick={() => selectDay(day.id, day.dayIndex)}
-              className={`rounded-md border p-3 text-left transition hover:border-emerald-300 hover:bg-emerald-50 ${
-                visibleDay.id === day.id ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-white'
-              }`}
-            >
-              <p className="font-medium">
-                Day {day.dayIndex} · {day.date}
-              </p>
-              <p className="mt-1 text-sm text-slate-600">{day.summary}</p>
-            </button>
-          ))}
-        </div>
-      </section>
+      ) : null}
     </main>
   );
 }

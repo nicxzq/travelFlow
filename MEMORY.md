@@ -17,6 +17,9 @@
 - [2026-08-17] 已发布到浏览器的种子计划后续发生语义替换时必须提升 `planRevision`：读取旧快照后以新种子为初始计划，只保留事件和跨事件引用仍有效的 changes，丢弃数量需要反馈给用户；新事件使用全新稳定 ID，避免旧修改误套。
 - [2026-08-29] 山西行结束后，shanxi-loop 种子从"计划环线"(rev2, 含壶口/运城/盐湖/鹳雀楼/蒲津渡) 整体语义替换为"实走六日回顾"(rev3, status completed)：未去运城/壶口，以洪洞广胜寺+大槐树替代，末程返长治(城隍庙)。事件 ID 用 r3-dN-eM 前缀，同步改 destination-map 与 study-cards；validate-scaffold.mjs 的 rev2 断言随之迁移到 rev3。设计规格见 docs/superpowers/specs/2026-08-29-shanxi-actual-recap-design.md。
 
+- [2026-09-03] 行程执行状态改为按登录用户分片存储：`travelflow:execution:u:{userId}:{tripId}` / `anon:{tripId}`，`u:`/`anon:` 前缀防止 userId 形似 tripId 时撞键并与 legacy 键区分。旧的无用户维度键仅在「已登录且非只读」时认领一次并删除，解析失败绝不删除；匿名永不读取。localStorage 无法证明旧状态归属，这是「本浏览器第一个登录用户认领」而非所有权事实。分享页固定 `userId={null}`，避免访客自己的归档串进别人的行程。
+- [2026-09-03] 目的地地图交互否决了「右侧列表内直接排序」方案：事件 `sortOrder` 全仓无人读（只有 todos 在读），顺序纯由 `startTime` 决定；唯一能表达重排的现成 change type 是 `swap`，而 `applySwap` 会交换开始时间并重算结束时间，拖一下顺序等于静默改写时钟。且 `CHANGE_TYPES` 遇未知类型返回 `invalid: true`，会让整个本地持久化停摆。改为点击站点后在地图下方展开详情面板。
+
 ## 踩坑 / Gotchas
 
 <!-- 格式：现象 → 原因 → 解法 -->
@@ -27,6 +30,10 @@
 - [2026-08-29] ui-tokenize 插件在本仓库(无 token catalog)会拦截 Write/Edit 工具，返回"No design-token catalog found"且不写盘；改文件改用 Bash(heredoc/perl)或交给 Codex 实现，或先 /tokenize:init 建 catalog。
 - [2026-09-02] codex_bridge.py 报 `[json decode error] ������̫����`（GBK 被当 UTF-8 解出的"请求太频繁"）时是**按 token 计的上游限流**，不是按请求数：同一时刻小 prompt 能成功、7KB 的大 prompt 必失败。解法是把任务拆成每次一个步骤的小 prompt 串行下发，不是退避重试。另：bridge 的 `--PROMPT` 经 shell 传参时，prompt 里的撇号（`Leaflet's`、`'drive'`）会截断单引号串导致 exit 1；先把 prompt 写文件再用 `--PROMPT "$(cat file)"`。
 - [2026-09-02] 本机 Node 22.14 跑不了 `npm run test:execution`：测试文件 import `./model.ts`，而原生类型剥离到 Node 22.18 才默认开启。本地验证需手动加 `--experimental-strip-types`。package.json 未改动。
+
+- [2026-09-03] React 同位置同类型元素会保留子树 state：地图站点详情面板若不加 `key={eventId}`，`EventQuickActions` 的 `isConfirmingCancel` 会跨站点残留——在 A 点到「确认标记取消」后改点 B，一次点击就取消了 B，两步确认被击穿。凡是「同一个组件位置轮换展示不同实体」的面板都要用实体 id 做 key。
+- [2026-09-03] `aria-controls` 指向的节点在折叠时若被条件渲染卸载，ARIA IDREF 无法解析。折叠面板要常驻挂载 + `hidden` 属性；注意 Tailwind 的 `grid`/`flex` 会覆盖 `hidden` 属性，隐藏时必须同时去掉 display 类。
+- [2026-09-03] 页面里凡是「今天」判定都必须挂载后用 effect 取，不能在 render 期算：服务端与浏览器跨午夜会把文本 mismatch 升级成整棵子树 hydration mismatch。也不能挂定时器——`displayDays → mapTrip → track → trackSignature` 链路会重置轨迹播放并重建整个 Leaflet 图层。
 
 ## 我的纠正 / 偏好
 
