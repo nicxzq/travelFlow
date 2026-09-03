@@ -2,7 +2,7 @@
 
 import { Globe, Layers, MapPin, Maximize2, Minimize2, Pencil, Play, Route } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useExpandedOverlay } from '@/hooks/use-expanded-overlay';
 import { useJourneyPlayback } from '@/hooks/use-journey-playback';
@@ -37,6 +37,8 @@ type DestinationMapProps = {
   activeDayIndex?: number;
   selectedEventId?: string;
   readOnly?: boolean;
+  /** Supplied by the workspace so the map stays free of study and execution concerns. */
+  stopDetail?: ReactNode;
   onStopSelect?: (stop: JourneyStop) => void;
 };
 
@@ -48,6 +50,7 @@ export function DestinationMap({
   activeDayIndex,
   selectedEventId,
   readOnly = false,
+  stopDetail,
   onStopSelect,
 }: DestinationMapProps) {
   const { overlay, stored, error, save, reset } = overlayState;
@@ -91,6 +94,12 @@ export function DestinationMap({
     const index = track.stops.findIndex((stop) => stop.eventId === selectedEventId);
     if (index >= 0) setActiveStopIndex(index);
   }, [selectedEventId, track.stops]);
+
+  // Cancelling a stop shrinks the track. Without this the index can point past the
+  // end, leaving activeStop undefined and the story card blank.
+  useEffect(() => {
+    setActiveStopIndex((current) => Math.min(current, Math.max(0, track.stops.length - 1)));
+  }, [track.stops.length]);
 
   // The canvas remounts when the map moves between the page and the overlay, so
   // route geometry and the vehicle are replayed onto the fresh controller. This is
@@ -336,6 +345,8 @@ export function DestinationMap({
                   type="button"
                   key={stop.eventId}
                   onClick={() => selectStop(index)}
+                  aria-current={index === activeStopIndex ? 'true' : undefined}
+                  aria-controls={stopDetail ? 'map-stop-detail' : undefined}
                   className={`w-full rounded-md border p-3 text-left text-sm transition hover:border-emerald-300 hover:bg-emerald-50 ${
                     index === activeStopIndex
                       ? 'border-amber-300 bg-amber-50'
@@ -355,6 +366,8 @@ export function DestinationMap({
               ))}
         </div>
       </div>
+
+      {stopDetail}
 
       {journeyMode ? <div className="border-t border-slate-200 bg-slate-50 p-4">{player}</div> : null}
 
