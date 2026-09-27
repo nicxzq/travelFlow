@@ -85,6 +85,35 @@ export function TripLibrary({ userId = null }: TripLibraryProps) {
         </div>
       </section>
 
+      <section className="rounded-lg border border-sky-200 bg-sky-50 p-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="inline-flex items-center gap-2 text-sm font-medium text-sky-700">
+              <FolderClock className="h-4 w-4" />
+              进行中
+            </p>
+            <h2 className="mt-2 text-xl font-semibold">长沙 → 贵州 → 昆明 → 广西 → 长沙 国庆自驾环线</h2>
+            <p className="mt-2 text-sm text-sky-900">2026-09-25 至 2026-10-06 · 12 天 · 约 3500-3800 公里 · 湘黔滇桂大环线</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/trip/southwest-loop-2026"
+              className="inline-flex items-center gap-2 rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700"
+            >
+              <ExternalLink className="h-4 w-4" />
+              打开总览
+            </Link>
+            <Link
+              href="/trip/southwest-loop-2026/share"
+              className="inline-flex items-center gap-2 rounded-md border border-sky-300 px-3 py-2 text-sm font-medium text-sky-800 hover:bg-sky-100"
+            >
+              <Share2 className="h-4 w-4" />
+              同行分享
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {archivedVisible ? (
         <section className="rounded-lg border border-amber-200 bg-amber-50 p-5">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
