@@ -1,7 +1,6 @@
 import Link from 'next/link';
-import { Bell, Camera, CheckCircle2, ExternalLink, FolderClock, MapPinned, Share2 } from 'lucide-react';
+import { Bell, Camera, CheckCircle2, ExternalLink, FolderClock, Share2 } from 'lucide-react';
 import { getNextEvent, getTripScheduleContext } from '@/lib/domain/trip-schedule';
-import { shanxiLoopTrip } from '@/lib/mock/shanxi-loop';
 import { southwestLoopTrip } from '@/lib/mock/southwest-loop';
 
 export const dynamic = 'force-dynamic';
@@ -28,47 +27,54 @@ const highlights = [
 ];
 
 export default function HomePage() {
-  const context = getTripScheduleContext(shanxiLoopTrip);
+  const trip = southwestLoopTrip;
+  const context = getTripScheduleContext(trip);
   const nextEvent = context.phase === 'posttrip' ? undefined : context.phase === 'pretrip' ? context.today.events[0] : getNextEvent(context.today);
-  const undoneTodos = (shanxiLoopTrip.todos ?? []).filter((todo) => todo.status !== 'done').length;
-
-  const swContext = getTripScheduleContext(southwestLoopTrip);
-  const swNextEvent = swContext.phase === 'posttrip' ? undefined : swContext.phase === 'pretrip' ? swContext.today.events[0] : getNextEvent(swContext.today);
-  const swUndoneTodos = (southwestLoopTrip.todos ?? []).filter((todo) => todo.status !== 'done').length;
+  const undoneTodos = (trip.todos ?? []).filter((todo) => todo.status !== 'done').length;
 
   return (
     <main>
       <section className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-10">
-        <div className="overflow-hidden rounded-lg border border-emerald-200 bg-white">
+        <div className="overflow-hidden rounded-lg border border-sky-200 bg-white">
           <div className="grid gap-6 p-6 md:grid-cols-[1.1fr_0.9fr] md:p-8">
             <div>
-              <p className="text-sm font-medium text-emerald-700">给这次山西自驾准备的旅行助手</p>
+              <p className="inline-flex items-center gap-2 text-sm font-medium text-sky-700">
+                <FolderClock className="h-4 w-4" />
+                进行中 · 国庆自驾环线
+              </p>
               <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">今天去哪、明天准备什么，一眼看清。</h1>
               <p className="mt-4 max-w-2xl text-slate-600">
-                TravelFlow 会把完整行程整理成每天的导引页：下一站、导航、待办、风险提醒和同行分享都放在一起。
+                长沙 → 贵州 → 昆明 → 广西 → 长沙，12 天湘黔滇桂大环线。TravelFlow 把完整行程整理成每天的导引页：下一站、导航、待办、风险提醒和同行分享都放在一起。
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
-                  href="/trip"
-                  className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+                  href="/trip/southwest-loop-2026"
+                  className="inline-flex items-center gap-2 rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
                 >
-                  查看我的行程
+                  <ExternalLink className="h-4 w-4" />
+                  打开行程总览
                 </Link>
                 <Link
-                  href="/trip/shanxi-loop-2026/share"
-                  className="inline-flex items-center gap-2 rounded-md border border-emerald-200 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+                  href="/trip/southwest-loop-2026/share"
+                  className="inline-flex items-center gap-2 rounded-md border border-sky-200 px-4 py-2 text-sm font-medium text-sky-700 hover:bg-sky-50"
                 >
                   <Share2 className="h-4 w-4" />
                   打开同行分享页
+                </Link>
+                <Link
+                  href="/trip"
+                  className="rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  查看全部行程
                 </Link>
               </div>
             </div>
 
             <div className="relative min-h-56 rounded-lg bg-slate-950 p-5 text-white">
-              <div className="absolute right-6 top-5 h-3 w-3 animate-ping rounded-full bg-emerald-300" />
+              <div className="absolute right-6 top-5 h-3 w-3 animate-ping rounded-full bg-sky-300" />
               <div className="space-y-3">
                 <div className="rounded-md bg-white/10 p-3">
-                  <p className="text-xs text-emerald-200">下一站</p>
+                  <p className="text-xs text-sky-200">下一站</p>
                   <p className="mt-1 font-semibold">{nextEvent?.title ?? '暂无下一站'}</p>
                   <p className="mt-1 text-xs text-slate-300">
                     {nextEvent ? `${nextEvent.startTime ?? '待定'} - ${nextEvent.endTime ?? '待定'} · ${nextEvent.locationName ?? '地点待定'}` : '当天行程已结束'}
@@ -78,7 +84,7 @@ export default function HomePage() {
                   <p className="text-xs text-blue-200">明日预告</p>
                   <p className="mt-1 font-semibold">{context.tomorrow?.summary ?? '没有下一天安排'}</p>
                 </div>
-                <div className="rounded-md bg-emerald-400/20 p-3">
+                <div className="rounded-md bg-sky-400/20 p-3">
                   <p className="inline-flex items-center gap-2 text-sm">
                     <CheckCircle2 className="h-4 w-4" />
                     {undoneTodos} 项待办待关注
@@ -89,82 +95,17 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-lg border border-sky-200 bg-white">
-          <div className="grid gap-6 p-6 md:grid-cols-[1.1fr_0.9fr] md:p-8">
-            <div>
-              <p className="inline-flex items-center gap-2 text-sm font-medium text-sky-700">
-                <FolderClock className="h-4 w-4" />
-                进行中 · 国庆自驾环线
-              </p>
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">长沙 → 贵州 → 昆明 → 广西 → 长沙</h2>
-              <p className="mt-4 max-w-2xl text-slate-600">
-                2026-09-25 至 2026-10-06 · 12 天 · 约 3500-3800 公里 · 湘黔滇桂大环线，含昆明、石林、大理方向沿途安排。
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link
-                  href="/trip/southwest-loop-2026"
-                  className="inline-flex items-center gap-2 rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  打开总览
-                </Link>
-                <Link
-                  href="/trip/southwest-loop-2026/share"
-                  className="inline-flex items-center gap-2 rounded-md border border-sky-200 px-4 py-2 text-sm font-medium text-sky-700 hover:bg-sky-50"
-                >
-                  <Share2 className="h-4 w-4" />
-                  同行分享
-                </Link>
-              </div>
-            </div>
-
-            <div className="relative min-h-56 rounded-lg bg-slate-950 p-5 text-white">
-              <div className="absolute right-6 top-5 h-3 w-3 animate-ping rounded-full bg-sky-300" />
-              <div className="space-y-3">
-                <div className="rounded-md bg-white/10 p-3">
-                  <p className="text-xs text-sky-200">下一站</p>
-                  <p className="mt-1 font-semibold">{swNextEvent?.title ?? '暂无下一站'}</p>
-                  <p className="mt-1 text-xs text-slate-300">
-                    {swNextEvent ? `${swNextEvent.startTime ?? '待定'} - ${swNextEvent.endTime ?? '待定'} · ${swNextEvent.locationName ?? '地点待定'}` : '当天行程已结束'}
-                  </p>
-                </div>
-                <div className="ml-8 rounded-md bg-white/10 p-3">
-                  <p className="text-xs text-blue-200">明日预告</p>
-                  <p className="mt-1 font-semibold">{swContext.tomorrow?.summary ?? '没有下一天安排'}</p>
-                </div>
-                <div className="rounded-md bg-sky-400/20 p-3">
-                  <p className="inline-flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4" />
-                    {swUndoneTodos} 项待办待关注
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <div className="grid gap-4 md:grid-cols-3">
           {highlights.map(({ title, desc, icon: Icon, motion }) => (
             <article key={title} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <div className={`inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 ${motion}`}>
-                <Icon className="h-5 w-5 text-emerald-600" />
+              <div className={`inline-flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 ${motion}`}>
+                <Icon className="h-5 w-5 text-sky-600" />
               </div>
               <h2 className="mt-4 font-semibold">{title}</h2>
               <p className="mt-2 text-sm text-slate-600">{desc}</p>
             </article>
           ))}
         </div>
-
-        <section className="rounded-lg border border-slate-200 bg-white p-5">
-          <h2 className="inline-flex items-center gap-2 font-semibold">
-            <MapPinned className="h-5 w-5 text-emerald-600" />
-            当前已准备好的行程
-          </h2>
-          <p className="mt-2 text-sm text-slate-600">晋东南到晋南自驾环线，6 天 5 晚，含每日安排、待办提醒和外部导航。</p>
-          <Link href="/trip/shanxi-loop-2026" className="mt-4 inline-flex text-sm font-medium text-emerald-700 hover:text-emerald-800">
-            进入行程总览
-          </Link>
-        </section>
       </section>
     </main>
   );
