@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { Bell, Camera, CheckCircle2, MapPinned, Share2 } from 'lucide-react';
+import { Bell, Camera, CheckCircle2, ExternalLink, FolderClock, MapPinned, Share2 } from 'lucide-react';
 import { getNextEvent, getTripScheduleContext } from '@/lib/domain/trip-schedule';
 import { shanxiLoopTrip } from '@/lib/mock/shanxi-loop';
+import { southwestLoopTrip } from '@/lib/mock/southwest-loop';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +31,10 @@ export default function HomePage() {
   const context = getTripScheduleContext(shanxiLoopTrip);
   const nextEvent = context.phase === 'posttrip' ? undefined : context.phase === 'pretrip' ? context.today.events[0] : getNextEvent(context.today);
   const undoneTodos = (shanxiLoopTrip.todos ?? []).filter((todo) => todo.status !== 'done').length;
+
+  const swContext = getTripScheduleContext(southwestLoopTrip);
+  const swNextEvent = swContext.phase === 'posttrip' ? undefined : swContext.phase === 'pretrip' ? swContext.today.events[0] : getNextEvent(swContext.today);
+  const swUndoneTodos = (southwestLoopTrip.todos ?? []).filter((todo) => todo.status !== 'done').length;
 
   return (
     <main>
@@ -77,6 +82,60 @@ export default function HomePage() {
                   <p className="inline-flex items-center gap-2 text-sm">
                     <CheckCircle2 className="h-4 w-4" />
                     {undoneTodos} 项待办待关注
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-lg border border-sky-200 bg-white">
+          <div className="grid gap-6 p-6 md:grid-cols-[1.1fr_0.9fr] md:p-8">
+            <div>
+              <p className="inline-flex items-center gap-2 text-sm font-medium text-sky-700">
+                <FolderClock className="h-4 w-4" />
+                进行中 · 国庆自驾环线
+              </p>
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">长沙 → 贵州 → 昆明 → 广西 → 长沙</h2>
+              <p className="mt-4 max-w-2xl text-slate-600">
+                2026-09-25 至 2026-10-06 · 12 天 · 约 3500-3800 公里 · 湘黔滇桂大环线，含昆明、石林、大理方向沿途安排。
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link
+                  href="/trip/southwest-loop-2026"
+                  className="inline-flex items-center gap-2 rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  打开总览
+                </Link>
+                <Link
+                  href="/trip/southwest-loop-2026/share"
+                  className="inline-flex items-center gap-2 rounded-md border border-sky-200 px-4 py-2 text-sm font-medium text-sky-700 hover:bg-sky-50"
+                >
+                  <Share2 className="h-4 w-4" />
+                  同行分享
+                </Link>
+              </div>
+            </div>
+
+            <div className="relative min-h-56 rounded-lg bg-slate-950 p-5 text-white">
+              <div className="absolute right-6 top-5 h-3 w-3 animate-ping rounded-full bg-sky-300" />
+              <div className="space-y-3">
+                <div className="rounded-md bg-white/10 p-3">
+                  <p className="text-xs text-sky-200">下一站</p>
+                  <p className="mt-1 font-semibold">{swNextEvent?.title ?? '暂无下一站'}</p>
+                  <p className="mt-1 text-xs text-slate-300">
+                    {swNextEvent ? `${swNextEvent.startTime ?? '待定'} - ${swNextEvent.endTime ?? '待定'} · ${swNextEvent.locationName ?? '地点待定'}` : '当天行程已结束'}
+                  </p>
+                </div>
+                <div className="ml-8 rounded-md bg-white/10 p-3">
+                  <p className="text-xs text-blue-200">明日预告</p>
+                  <p className="mt-1 font-semibold">{swContext.tomorrow?.summary ?? '没有下一天安排'}</p>
+                </div>
+                <div className="rounded-md bg-sky-400/20 p-3">
+                  <p className="inline-flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4" />
+                    {swUndoneTodos} 项待办待关注
                   </p>
                 </div>
               </div>
