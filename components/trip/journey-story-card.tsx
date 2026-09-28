@@ -1,6 +1,7 @@
 'use client';
 
-import { ChevronLeft, ChevronRight, Navigation } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Navigation } from 'lucide-react';
+import type { EventCategory } from '@/lib/domain/trip';
 import type { JourneyStop } from '@/lib/domain/journey';
 import { StopImage } from '@/components/trip/stop-image';
 
@@ -15,6 +16,17 @@ type JourneyStoryCardProps = {
   className?: string;
 };
 
+// Public Unsplash CDN URLs (https, stable photo ids). Used when a stop has no
+// authored imageUrl so the story panel always shows a real picture instead of a
+// blank placeholder.
+const DEFAULT_IMAGES: Record<EventCategory, string> = {
+  spot: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=60',
+  food: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=60',
+  hotel: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=60',
+  transport: 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=800&q=60',
+  custom: 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&q=60',
+};
+
 export function JourneyStoryCard({
   stop,
   index,
@@ -27,24 +39,30 @@ export function JourneyStoryCard({
 }: JourneyStoryCardProps) {
   return (
     <article
-      // `invisible` (visibility:hidden) also removes the inner controls from the tab
-      // order and from hit-testing, which `opacity-0` alone would not.
-      className={`overflow-hidden rounded-xl border border-white/60 bg-white/95 shadow-lg backdrop-blur transition-opacity duration-300 ${
-        traveling ? 'invisible opacity-0' : 'visible opacity-100'
-      } ${className ?? ''}`}
-      aria-hidden={traveling}
+      // Stays visible while the vehicle is moving: the story panel should always
+      // show the stop being approached, otherwise the whole side column reads as
+      // blank for the entire playback and only reappears when it stops.
+      className={`overflow-hidden rounded-xl border border-white/60 bg-white/95 shadow-lg backdrop-blur ${className ?? ''}`}
     >
       <StopImage
-        src={stop.imageUrl}
+        src={stop.imageUrl ?? DEFAULT_IMAGES[stop.kind]}
         alt={stop.title}
         badge={`DAY ${stop.dayIndex} · ${String(stop.order + 1).padStart(2, '0')}`}
         className="h-40 md:h-48"
       />
 
       <div className="space-y-2 p-4">
-        <p className="text-[11px] font-bold uppercase tracking-wide text-teal-700">
-          {date ?? ''} {stop.time ? `· ${stop.time}` : ''}
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-teal-700">
+            {date ?? ''} {stop.time ? `· ${stop.time}` : ''}
+          </p>
+          {traveling ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              行进中
+            </span>
+          ) : null}
+        </div>
         <h3 className="text-lg font-semibold leading-snug text-slate-900">{stop.title}</h3>
 
         {stop.story ? <p className="max-h-40 overflow-auto text-sm leading-relaxed text-slate-700">{stop.story}</p> : null}
